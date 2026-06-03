@@ -30,3 +30,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# clasp / GAS — auth credentials never committed (scriptId in gas/.clasp.json is fine)
+.clasprc.json
+gas/.clasprc.json
