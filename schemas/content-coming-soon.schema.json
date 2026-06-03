@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "content-coming-soon.schema.json",
+  "title": "ComingSoonContent",
+  "description": "coming-soon-v1 固定テンプレの7スロット入力。値は公開URL or ローカルパス(画像) / 文字列(テキスト)。",
+  "type": "object",
+  "required": ["logo", "tagline", "qr", "frame1", "body1", "frame2", "body2"],
+  "additionalProperties": false,
+  "properties": {
+    "logo": { "type": "string", "minLength": 1 },
+    "tagline": { "type": "string" },
+    "qr": { "type": "string", "minLength": 1 },
+    "frame1": { "type": "string", "minLength": 1 },
+    "body1": { "type": "string" },
+    "frame2": { "type": "string", "minLength": 1 },
+    "body2": { "type": "string" }
+  }
+}
