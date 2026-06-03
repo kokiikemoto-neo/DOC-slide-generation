@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "stylespec.schema.json",
+  "title": "StyleSpec",
+  "type": "object",
+  "required": ["meta", "palette", "typography", "regions"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["aspectRatio", "pageSize"],
+      "properties": {
+        "templateId": { "type": "string" },
+        "sourceImage": { "type": "string" },
+        "aspectRatio": { "enum": ["16:9", "4:3"] },
+        "pageSize": {
+          "type": "object",
+          "required": ["w", "h"],
+          "properties": { "w": { "type": "number" }, "h": { "type": "number" } }
+        },
+        "note": { "type": "string" }
+      }
+    },
+    "background": {
+      "type": "object",
+      "required": ["type", "asset"],
+      "properties": {
+        "type": { "const": "image" },
+        "asset": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["family", "sizePt", "color"],
+        "properties": {
+          "family": { "type": "string" },
+          "fontCandidates": { "type": "array", "items": { "type": "string" } },
+          "weightHint": { "enum": ["regular", "medium", "bold"] },
+          "sizePt": { "type": "number" },
+          "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "align": { "enum": ["left", "center", "right"] }
+        }
+      }
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "role", "rect"],
+        "properties": {
+          "id": { "type": "string" },
+          "role": { "enum": ["title", "body", "image", "caption", "decoration", "text"] },
+          "rect": {
+            "type": "object",
+            "required": ["x", "y", "w", "h"],
+            "properties": {
+              "x": { "type": "number" }, "y": { "type": "number" },
+              "w": { "type": "number" }, "h": { "type": "number" }
+            }
+          },
+          "fit": { "enum": ["cover", "contain", "perspective"] },
+          "fill": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+          "editable": { "type": "boolean" },
+          "style": { "type": "string" },
+          "note": { "type": "string" },
+          "quad": {
+            "type": "object",
+            "required": ["tl", "tr", "br", "bl"],
+            "properties": {
+              "tl": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+              "tr": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+              "br": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+              "bl": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+            }
+          }
+        }
+      }
+    },
+    "editableSlots": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    }
+  }
+}

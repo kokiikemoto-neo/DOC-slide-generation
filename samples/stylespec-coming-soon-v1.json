@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "templateId": "coming-soon-v1",
+    "sourceImage": "template-coming-soon.png",
+    "aspectRatio": "16:9",
+    "pageSize": { "w": 960, "h": 540 },
+    "note": "実画像1672x941から実測。座標はpt(960x540)に正規化換算。レイアウトは固定、差し替え可能なのはregionsのうちeditable=trueの7箇所のみ。"
+  },
+  "background": {
+    "type": "image",
+    "asset": "assets/background.png",
+    "note": "1枚目のテンプレートから記入欄プレースホルダ文字とComing soon文字を消し、フレーム発光・グラデ帯・番号丸・区切り線を焼き込んだ固定背景。これを最背面に敷く。"
+  },
+  "palette": {
+    "background":   "#EEEDFD",
+    "ink":          "#1E1D56",
+    "gradFrom":     "#C3CEFC",
+    "gradTo":       "#E6CCFB",
+    "boxFill":      "#DFDEFD",
+    "numberCircle": "#C3C3FF",
+    "frameGlow":    "#8AA0FF"
+  },
+  "typography": {
+    "header":  { "family": "Noto Sans JP", "fontCandidates": ["Noto Sans JP","Zen Kaku Gothic New","Sans-serif"], "weightHint": "bold",    "sizePt": 18, "color": "#1E1D56", "align": "center" },
+    "tagline": { "family": "Noto Sans JP", "weightHint": "bold",    "sizePt": 20, "color": "#1E1D56", "align": "center" },
+    "body":    { "family": "Noto Sans JP", "weightHint": "regular", "sizePt": 14, "color": "#1E1D56", "align": "left" }
+  },
+  "regions": [
+    { "id": "logo",     "role": "image", "editable": true,  "fit": "contain",
+      "rect": { "x": 16,  "y": 15, "w": 314, "h": 98 },
+      "note": "左上ヘッダー: ロゴ画像。白カード内に収める。" },
+
+    { "id": "tagline",  "role": "text",  "editable": true,
+      "rect": { "x": 350, "y": 15, "w": 398, "h": 98 },
+      "style": "tagline",
+      "note": "中央グラデ帯: 活用背景ひとこと。背景グラデは固定背景側に焼き込み済み。" },
+
+    { "id": "qr",       "role": "image", "editable": true,  "fit": "contain",
+      "rect": { "x": 766, "y": 14, "w": 177, "h": 99 },
+      "note": "右上ヘッダー: QR画像。" },
+
+    { "id": "frame1",   "role": "image", "editable": true,  "fit": "perspective",
+      "rect": { "x": 46,  "y": 124, "w": 301, "h": 211 },
+      "quad": { "tl": [48,129], "tr": [354,129], "br": [354,323], "bl": [48,323] },
+      "note": "左上の傾いたカード(①の図). perspectiveのためquadへ透視変換した画像を事前生成して重ねる。quadは実装段でフレーム内側白領域から再計測して精緻化すること(現値は近似)。" },
+
+    { "id": "body1",    "role": "text",  "editable": true,
+      "rect": { "x": 390, "y": 185, "w": 528, "h": 123 },
+      "style": "body",
+      "note": "①の本文記入欄。" },
+
+    { "id": "body2",    "role": "text",  "editable": true,
+      "rect": { "x": 37,  "y": 367, "w": 490, "h": 126 },
+      "style": "body",
+      "note": "②の本文記入欄。" },
+
+    { "id": "frame2",   "role": "image", "editable": true,  "fit": "perspective",
+      "rect": { "x": 578, "y": 313, "w": 320, "h": 209 },
+      "quad": { "tl": [600,330], "tr": [898,318], "br": [898,512], "bl": [600,524] },
+      "note": "右下の傾いたカード(②の図). frame1と逆向きの傾き。quadは実装段で再計測。" },
+
+    { "id": "number1",  "role": "decoration", "editable": false,
+      "rect": { "x": 390, "y": 150, "w": 528, "h": 24 },
+      "note": "①見出し(丸数字+区切り線)。固定背景に焼き込み。" },
+    { "id": "number2",  "role": "decoration", "editable": false,
+      "rect": { "x": 37, "y": 332, "w": 490, "h": 24 },
+      "note": "②見出し(丸数字+区切り線)。固定背景に焼き込み。" }
+  ],
+  "editableSlots": ["logo", "tagline", "qr", "frame1", "body1", "body2", "frame2"]
+}
