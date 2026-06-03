@@ -56,14 +56,31 @@ function getSheet_() {
   var name = getProp_('SHEET_NAME', 'companies');
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
-    throw new Error('シート "' + name + '" が見つかりません。SHEET_NAME を確認してください。');
+    var names = ss.getSheets().map(function (s) { return s.getName(); });
+    throw new Error('シート "' + name + '" が見つかりません。実在するシート: [' + names.join(', ') +
+      ']。SHEET_NAME を実シート名に設定するか Config.gs の既定を変更してください。');
   }
   return sheet;
 }
 
-/** エディタから手動実行: 1行目のヘッダーをログに出して実列名を確認する。 */
+/**
+ * エディタから手動実行: スプレッドシート内の全シート名と、対象シートの1行目ヘッダーをログ出力。
+ * SHEET_NAME が未一致でも、先頭シートにフォールバックしてヘッダーを表示する（実列名の発見用）。
+ */
 function inspectHeaders() {
-  var sheet = getSheet_();
+  var ss = getSpreadsheet_();
+  var allNames = ss.getSheets().map(function (s) { return s.getName(); });
+  Logger.log('スプレッドシート内のシート一覧: %s', JSON.stringify(allNames));
+
+  var wanted = getProp_('SHEET_NAME', 'companies');
+  var sheet = ss.getSheetByName(wanted);
+  if (!sheet) {
+    sheet = ss.getSheets()[0];
+    Logger.log('SHEET_NAME="%s" は未一致。先頭シート "%s" のヘッダーを表示します。', wanted, sheet.getName());
+    Logger.log('→ このシートを使うなら スクリプトプロパティ SHEET_NAME に "%s" を設定してください。', sheet.getName());
+  } else {
+    Logger.log('対象シート: "%s"', sheet.getName());
+  }
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
   Logger.log('ヘッダー(%s列): %s', headers.length, JSON.stringify(headers));
   return headers;
