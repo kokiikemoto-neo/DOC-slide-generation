@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "slidegen": "tsx src/index.ts",
-    "make:bg": "tsx scripts/make-placeholder-bg.ts"
+    "make:bg": "tsx scripts/make-placeholder-bg.ts",
+    "make:samples": "tsx scripts/make-sample-assets.ts",
+    "preview": "tsx scripts/preview.ts"
   },
   "engines": {
     "node": ">=20"
