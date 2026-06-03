@@ -1,0 +1,17 @@
+node_modules
+dist
+out
+tmp
+.git
+.env
+.env.local
+token.json
+*-key.json
+*-credentials.json
+*service-account*.json
+client_secret*.json
+credentials.json
+gas
+*.log
+.vscode
+.idea

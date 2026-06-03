@@ -1,0 +1,12 @@
+{
+  "templateId": "coming-soon-v1",
+  "content": {
+    "logo": "samples/assets/logo.png",
+    "tagline": "現場の暗黙知を、誰でも引き出せる形に。",
+    "qr": "samples/assets/qr.png",
+    "frame1": "samples/assets/shot1.png",
+    "body1": "・ベテランの判断基準を構造化\n・新人の立ち上がりを短縮",
+    "frame2": "samples/assets/shot2.png",
+    "body2": "・導入3ヶ月で問い合わせ対応時間が40%減"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search-filter.schema.json",
+  "title": "SearchFilter",
+  "type": "object",
+  "required": ["filters"],
+  "properties": {
+    "filters": {
+      "type": "object",
+      "description": "列キーごとの条件。AND結合。値未指定の条件は無視される。",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "const": "range" },
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "values"],
+            "properties": {
+              "type": { "const": "in" },
+              "values": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "value"],
+            "properties": {
+              "type": { "const": "contains" },
+              "value": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}
