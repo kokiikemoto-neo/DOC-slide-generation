@@ -85,3 +85,35 @@ function inspectHeaders() {
   Logger.log('ヘッダー(%s列): %s', headers.length, JSON.stringify(headers));
   return headers;
 }
+
+/**
+ * エディタから手動実行: 先頭シートの最初の数行を「列ごと」にログ出力する。
+ * 1行目が空欄だらけ等で構造が分からない時に、ヘッダー行や列の中身を特定するため。
+ * 列はA,B,C…のラベル付きで、空セルも含めて表示する。
+ */
+function inspectRows() {
+  var ss = getSpreadsheet_();
+  var wanted = getProp_('SHEET_NAME', 'companies');
+  var sheet = ss.getSheetByName(wanted) || ss.getSheets()[0];
+  Logger.log('対象シート: "%s"  行数=%s 列数=%s', sheet.getName(), sheet.getLastRow(), sheet.getLastColumn());
+
+  var nRows = Math.min(6, Math.max(1, sheet.getLastRow()));
+  var nCols = Math.max(1, sheet.getLastColumn());
+  var values = sheet.getRange(1, 1, nRows, nCols).getValues();
+
+  function colLabel(i) {
+    var s = '';
+    i = i + 1;
+    while (i > 0) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+    return s;
+  }
+  for (var r = 0; r < values.length; r++) {
+    var parts = [];
+    for (var c = 0; c < values[r].length; c++) {
+      var v = values[r][c];
+      parts.push(colLabel(c) + '=' + (v === '' || v === null ? '·' : String(v)));
+    }
+    Logger.log('行%s: %s', r + 1, parts.join(' | '));
+  }
+  return values;
+}
