@@ -160,8 +160,18 @@ function shareSlide_(fileId) {
   try { file = DriveApp.getFileById(fileId); } catch (e) { return '共有設定をスキップ（ファイル取得不可）'; }
   var msg = function (e) { return (e && e.message) || e; };
 
+  // 0) 共有フォルダ/共有ドライブへ保存（最優先・最も確実）。
+  //    フォルダをチームに「編集者」で共有しておけば、中の生成スライドも編集可になる。
+  var folderId = getProp_('SHARE_FOLDER_ID', '');
+  var movedToFolder = false;
+  if (folderId) {
+    try { file.moveTo(DriveApp.getFolderById(folderId)); movedToFolder = true; }
+    catch (e) { notes.push('共有フォルダへの移動失敗(' + msg(e) + ')'); }
+  }
+
   var mode = getProp_('SHARE_MODE', 'domain_edit');
-  if (mode !== 'none') {
+  // 共有フォルダに入れた場合はフォルダのアクセス権で編集可になるため、リンク/ドメイン共有はスキップ。
+  if (!movedToFolder && mode !== 'none') {
     var linkAccess = (mode === 'anyone_edit') ? DriveApp.Access.ANYONE_WITH_LINK : DriveApp.Access.DOMAIN_WITH_LINK;
     var ok = false;
     // 1) リンク共有で編集付与 → 実際に EDIT が付いたか読み取って確認
@@ -189,6 +199,8 @@ function shareSlide_(fileId) {
       if (list.length) { file.addEditors(list); notes.push('編集者追加: ' + list.join(',')); }
     } catch (e) { notes.push('編集者追加失敗(' + msg(e) + ')'); }
   }
+
+  if (movedToFolder && !notes.length) return '共有フォルダに保存（フォルダの編集メンバーが編集可）';
   return notes.join(' / ');
 }
 
