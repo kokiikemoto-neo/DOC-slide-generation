@@ -42,37 +42,6 @@ function findSearchRowById_(caseId) {
   return null;
 }
 
-// ============================================================
-// 画像アップロード（フォームのファイル選択 → Drive 公開URL化）
-// ============================================================
-/** アップロード先フォルダ。UPLOAD_FOLDER_ID プロパティがあればそこ、無ければマイドライブ直下。 */
-function getUploadFolder_() {
-  var id = getProp_('UPLOAD_FOLDER_ID', '');
-  if (id) {
-    try { return DriveApp.getFolderById(id); } catch (e) { /* 落ちたら root */ }
-  }
-  return DriveApp.getRootFolder();
-}
-
-/**
- * UI から data URL（base64）を受け取り Drive に保存、リンク共有(閲覧)にして公開URLを返す。
- * 返り値: { ok, url, fileId } / { ok:false, error }
- */
-function uploadImageToDrive(dataUrl, filename) {
-  var m = /^data:([^;]+);base64,(.*)$/.exec(String(dataUrl || ''));
-  if (!m) return { ok: false, error: '画像データ形式が不正です。' };
-  try {
-    var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], filename || 'slidegen-upload');
-    var file = getUploadFolder_().createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    var id = file.getId();
-    // Slides/Node が取得できる公開URL（Node 側 drive.ts と同形式）
-    return { ok: true, url: 'https://drive.google.com/uc?export=view&id=' + id, fileId: id };
-  } catch (e) {
-    return { ok: false, error: 'Drive へのアップロードに失敗しました: ' + ((e && e.message) || e) };
-  }
-}
-
 /**
  * JSON API（外部/プログラム利用）。UI は google.script.run を使う。
  * body: { action:'search', filters }
