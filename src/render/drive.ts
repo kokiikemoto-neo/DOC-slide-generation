@@ -87,22 +87,49 @@ export async function uploadPublicImage(
     mimeType: img.mime,
     body: Readable.from(img.buffer),
   };
-  const created = await drive.files.create({
-    requestBody: { name, mimeType: img.mime },
-    media,
-    fields: "id",
-  });
-  const fileId = created.data.id;
+  let fileId: string | null | undefined;
+  try {
+    const created = await drive.files.create({
+      requestBody: { name, mimeType: img.mime },
+      media,
+      fields: "id",
+    });
+    fileId = created.data.id;
+  } catch (e) {
+    throw new ImageResolveError(`Drive へのアップロード(files.create)に失敗: ${name}\n  → ${googleErr(e)}`);
+  }
   if (!fileId) {
     throw new ImageResolveError(`Drive へのアップロードに失敗しました (id 取得不可): ${name}`);
   }
 
-  await drive.permissions.create({
-    fileId,
-    requestBody: { role: "reader", type: "anyone" },
-  });
+  try {
+    await drive.permissions.create({
+      fileId,
+      requestBody: { role: "reader", type: "anyone" },
+    });
+  } catch (e) {
+    throw new ImageResolveError(
+      `Drive の公開設定(permissions.create type=anyone)に失敗: ${name}\n  → ${googleErr(e)}\n` +
+        `  ※ 組織(Workspace)のポリシーで「リンクを知っている全員」への共有が禁止されている可能性があります。`
+    );
+  }
 
   return { url: `https://drive.google.com/uc?export=view&id=${fileId}`, fileId };
+}
+
+/** googleapis のエラーから、コード・理由・メッセージを読みやすく取り出す。 */
+function googleErr(e: unknown): string {
+  const anyE = e as {
+    code?: number | string;
+    message?: string;
+    response?: { data?: { error?: { code?: number; message?: string; errors?: Array<{ reason?: string; message?: string }> } } };
+  };
+  const err = anyE?.response?.data?.error;
+  if (err) {
+    const reason = err.errors?.[0]?.reason;
+    return `${err.code ?? anyE.code ?? ""} ${err.message ?? ""}${reason ? ` [${reason}]` : ""}`.trim();
+  }
+  return anyE?.message ?? String(e);
 }
 
 /** アップロードしたファイルを削除する（任意の後始末用）。 */
