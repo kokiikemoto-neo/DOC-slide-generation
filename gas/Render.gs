@@ -162,7 +162,7 @@ function shareSlide_(fileId) {
 
   // 0) 共有フォルダ/共有ドライブへ保存（最優先・最も確実）。
   //    フォルダをチームに「編集者」で共有しておけば、中の生成スライドも編集可になる。
-  var folderId = getProp_('SHARE_FOLDER_ID', '');
+  var folderId = getProp_('SHARE_FOLDER_ID', DEFAULT_SHARE_FOLDER_ID);
   var movedToFolder = false;
   if (folderId) {
     try { file.moveTo(DriveApp.getFolderById(folderId)); movedToFolder = true; }

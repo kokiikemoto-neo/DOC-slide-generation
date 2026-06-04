@@ -79,6 +79,10 @@ var SEARCH_FACET_KEYS = ['industry', 'region', 'challenge'];
 var MATCH_GEN_KEY = 'caseId';
 var MATCH_SEARCH_KEY = 'id';
 
+/** 生成スライドの保存先フォルダID（既定）。Script Property SHARE_FOLDER_ID で上書き可。
+ *  このフォルダをチームに「編集者」で共有しておくと、中の生成スライドも全員が編集可になる。 */
+var DEFAULT_SHARE_FOLDER_ID = '1-G6ZHbifIlrkEdq_Fuys1cPL4_eWw0rJ';
+
 /** 複数値セルの区切り: カンマ既定。全角カンマ・読点・セミコロン(半/全角)・改行もフォールバック許容。 */
 var MULTI_VALUE_SPLIT = /[,、，;；\n\r]+/;
 
