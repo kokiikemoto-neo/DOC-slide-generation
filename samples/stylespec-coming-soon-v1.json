@@ -32,13 +32,13 @@
       "note": "左上ヘッダー: ロゴ画像。白カード内に収める。" },
 
     { "id": "tagline",  "role": "text",  "editable": true,
-      "rect": { "x": 350, "y": 15, "w": 398, "h": 98 },
+      "rect": { "x": 350, "y": 15, "w": 474, "h": 98 },
       "style": "tagline",
-      "note": "中央グラデ帯: 活用背景ひとこと。背景グラデは固定背景側に焼き込み済み。" },
+      "note": "中央グラデ帯: 活用背景ひとこと。QR縮小に合わせて横幅を拡張。" },
 
     { "id": "qr",       "role": "image", "editable": true,  "fit": "contain",
-      "rect": { "x": 766, "y": 14, "w": 177, "h": 99 },
-      "note": "右上ヘッダー: QR画像。" },
+      "rect": { "x": 840, "y": 14, "w": 99, "h": 99 },
+      "note": "右上ヘッダー: QR画像。小さめの正方形。" },
 
     { "id": "frame1",   "role": "image", "editable": true,  "fit": "perspective",
       "rect": { "x": 46,  "y": 124, "w": 301, "h": 211 },
@@ -66,9 +66,9 @@
       "note": "②の本文記入欄。" },
 
     { "id": "frame2",   "role": "image", "editable": true,  "fit": "perspective",
-      "rect": { "x": 578, "y": 313, "w": 320, "h": 209 },
-      "quad": { "tl": [600,330], "tr": [898,318], "br": [898,512], "bl": [600,524] },
-      "note": "右下の傾いたカード(②の図). frame1と逆向きの傾き。quadは実装段で再計測。" },
+      "rect": { "x": 578, "y": 313, "w": 301, "h": 211 },
+      "quad": { "tl": [578,313], "tr": [879,313], "br": [879,524], "bl": [578,524] },
+      "note": "右下のカード(②の図). frame1と同サイズ・まっすぐ(軸並行)。傾きは将来オプション。" },
 
     { "id": "number1",  "role": "decoration", "editable": false,
       "rect": { "x": 390, "y": 150, "w": 528, "h": 24 },

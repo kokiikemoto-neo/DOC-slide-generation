@@ -14,12 +14,12 @@ var LAYOUT = {
   },
   images: [
     { key: 'logo',   rect: { x: 16,  y: 15,  w: 314, h: 98 } },
-    { key: 'qr',     rect: { x: 766, y: 14,  w: 177, h: 99 } },
+    { key: 'qr',     rect: { x: 840, y: 14,  w: 99,  h: 99 } },
     { key: 'frame1', rect: { x: 46,  y: 124, w: 301, h: 211 } },
-    { key: 'frame2', rect: { x: 578, y: 313, w: 320, h: 209 } }
+    { key: 'frame2', rect: { x: 578, y: 313, w: 301, h: 211 } }
   ],
   texts: [
-    { key: 'tagline', rect: { x: 350, y: 15,  w: 398, h: 98 },  style: 'tagline', valign: 'MIDDLE' },
+    { key: 'tagline', rect: { x: 350, y: 15,  w: 474, h: 98 },  style: 'tagline', valign: 'MIDDLE' },
     { key: 'head1',   rect: { x: 422, y: 147, w: 496, h: 28 },  style: 'head',    valign: 'MIDDLE' },
     { key: 'body1',   rect: { x: 390, y: 185, w: 528, h: 123 }, style: 'body',    valign: 'TOP'    },
     { key: 'head2',   rect: { x: 69,  y: 329, w: 458, h: 28 },  style: 'head',    valign: 'MIDDLE' },
