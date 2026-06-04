@@ -71,6 +71,10 @@
         <div class="range"><input type="number" id="s_hireMin" placeholder="min"><span>〜</span><input type="number" id="s_hireMax" placeholder="max"></div>
       </div>
       <div>
+        <label class="fld">従業員規模（範囲）</label>
+        <div class="range"><input type="number" id="s_empMin" placeholder="min"><span>〜</span><input type="number" id="s_empMax" placeholder="max"></div>
+      </div>
+      <div>
         <label class="fld">業種</label>
         <div class="tags" id="facet-industry"><span class="muted">読み込み中…</span></div>
       </div>
@@ -289,10 +293,19 @@
     });
   }
 
+  function rangeFilter(minId, maxId) {
+    var min = document.getElementById(minId).value, max = document.getElementById(maxId).value;
+    if (min === '' && max === '') return null;
+    var r = { type: 'range' };
+    if (min !== '') r.min = Number(min);
+    if (max !== '') r.max = Number(max);
+    return r;
+  }
+
   function buildFilters() {
     var f = {};
-    var min = document.getElementById('s_hireMin').value, max = document.getElementById('s_hireMax').value;
-    if (min !== '' || max !== '') { f.hireCount = { type: 'range' }; if (min !== '') f.hireCount.min = Number(min); if (max !== '') f.hireCount.max = Number(max); }
+    var hire = rangeFilter('s_hireMin', 's_hireMax'); if (hire) f.hireCount = hire;
+    var emp = rangeFilter('s_empMin', 's_empMax'); if (emp) f.empScale = emp;
     ['industry', 'region', 'challenge'].forEach(function (key) {
       var vals = Object.keys(selected[key]); if (vals.length) f[key] = { type: 'in', values: vals };
     });
@@ -310,16 +323,18 @@
 
   function link(u) { return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">開く ↗</a>' : ''; }
   function arr(a) { return Array.isArray(a) ? a.join('、') : (a || ''); }
+  function iv(x) { return (x && typeof x === 'object' && x.lo !== undefined) ? (x.lo === x.hi ? String(x.lo) : (x.lo + '〜' + x.hi)) : ''; }
 
   function renderResults(res) {
     lastRows = (res && res.rows) || [];
     document.getElementById('resultMeta').textContent = (res ? res.count : 0) + ' 件ヒット';
     var wrap = document.getElementById('resultWrap');
     if (!lastRows.length) { wrap.innerHTML = '<p class="muted">該当なし</p>'; return; }
-    var html = '<table><thead><tr><th>ID</th><th>企業名</th><th>業種</th><th>地域</th><th>採用課題</th><th>営業資料</th><th>DOC</th></tr></thead><tbody>';
+    var html = '<table><thead><tr><th>ID</th><th>企業名</th><th>業種</th><th>地域</th><th>採用課題</th><th>採用人数</th><th>従業員規模</th><th>営業資料</th><th>DOC</th></tr></thead><tbody>';
     lastRows.forEach(function (r) {
       html += '<tr><td>' + esc(r.id) + '</td><td>' + esc(r.name) + '</td><td>' + esc(arr(r.industry)) + '</td>' +
         '<td>' + esc(arr(r.region)) + '</td><td>' + esc(arr(r.challenge)) + '</td>' +
+        '<td>' + esc(iv(r.hireCount)) + '</td><td>' + esc(iv(r.empScale)) + '</td>' +
         '<td>' + link(r.salesDocUrl) + '</td><td>' + link(r.docUrl) + '</td></tr>';
     });
     html += '</tbody></table>';
@@ -327,9 +342,9 @@
   }
 
   function resetSearch() {
-    document.getElementById('s_name').value = '';
-    document.getElementById('s_hireMin').value = '';
-    document.getElementById('s_hireMax').value = '';
+    ['s_name', 's_hireMin', 's_hireMax', 's_empMin', 's_empMax'].forEach(function (id) {
+      document.getElementById(id).value = '';
+    });
     selected = { industry: {}, region: {}, challenge: {} };
     document.querySelectorAll('.tag.on').forEach(function (el) { el.classList.remove('on'); });
   }

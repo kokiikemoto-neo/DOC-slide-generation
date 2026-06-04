@@ -60,8 +60,14 @@ var SEARCH_COLUMN_MAP = {
   lpUrl:       'LPURL'
 };
 
-/** 検索シートで数値として解釈する論理キー（range フィルタ対象）。 */
-var SEARCH_NUMERIC_KEYS = ['hireCount'];
+/** 検索シートで単一数値として解釈する論理キー（今は無し）。 */
+var SEARCH_NUMERIC_KEYS = [];
+
+/**
+ * 「min, max」形式で“幅”を表す列（例: 採用人数(新卒)/従業員規模 のセルが "1, 5" = 1〜5人）。
+ * セルから数値を拾って区間 [lo, hi] に正規化し、range フィルタは“区間の重なり”で判定する。
+ */
+var SEARCH_RANGE_KEYS = ['hireCount', 'empScale'];
 
 /** 検索シートで複数値セルとして split する論理キー（in フィルタでタグ判定）。 */
 var SEARCH_MULTI_VALUE_KEYS = ['industry', 'region', 'media', 'challenge'];

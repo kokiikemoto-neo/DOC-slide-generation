@@ -13,14 +13,24 @@ function splitMulti_(value) {
     .filter(function (s) { return s.length > 0; });
 }
 
+/** セルから数値を拾って区間 [lo, hi] に正規化（"1, 5"→{lo:1,hi:5} / "5"→{lo:5,hi:5} / 数値無し→null）。 */
+function parseInterval_(cell) {
+  if (cell === '' || cell === null || cell === undefined) return null;
+  var nums = String(cell).match(/-?\d+(?:\.\d+)?/g);
+  if (!nums || !nums.length) return null;
+  var vals = nums.map(Number);
+  return { lo: Math.min.apply(null, vals), hi: Math.max.apply(null, vals) };
+}
+
 /**
  * 任意のシートを columnMap で論理キー付きの行オブジェクト配列にする。
- * numericKeys は Number 化、multiKeys は split して配列化。
+ * numericKeys は Number 化、multiKeys は split して配列化、rangeKeys は区間 {lo,hi} 化。
  * 返り値: { rows, headerIndex } rows[i] = { _row, <logicalKey>: value, ... }
  */
-function readRows_(sheet, columnMap, numericKeys, multiKeys) {
+function readRows_(sheet, columnMap, numericKeys, multiKeys, rangeKeys) {
   numericKeys = numericKeys || [];
   multiKeys = multiKeys || [];
+  rangeKeys = rangeKeys || [];
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
   if (lastRow < 2) return { rows: [], headerIndex: {} };
@@ -46,7 +56,9 @@ function readRows_(sheet, columnMap, numericKeys, multiKeys) {
     Object.keys(keyIndex).forEach(function (key) {
       var idx = keyIndex[key];
       var cell = idx >= 0 ? raw[idx] : '';
-      if (numericKeys.indexOf(key) >= 0) {
+      if (rangeKeys.indexOf(key) >= 0) {
+        obj[key] = parseInterval_(cell);
+      } else if (numericKeys.indexOf(key) >= 0) {
         var n = Number(cell);
         obj[key] = (cell === '' || isNaN(n)) ? null : n;
       } else if (multiKeys.indexOf(key) >= 0) {
@@ -60,12 +72,17 @@ function readRows_(sheet, columnMap, numericKeys, multiKeys) {
   return { rows: rows, headerIndex: headerIndex };
 }
 
-/** range: min/max（どちらか省略可）。値が null の行は不一致。 */
+/**
+ * range: 行の値を区間 [lo,hi] とみなし、検索条件 [min,max] と“重なれば”一致。
+ * 行値は {lo,hi}（幅を持つ列）でも 単一数値（[n,n] とみなす）でも可。min/max は省略可。
+ */
 function matchRange_(value, cond) {
-  if (value === null || value === undefined || isNaN(Number(value))) return false;
-  var v = Number(value);
-  if (cond.min !== undefined && cond.min !== null && v < cond.min) return false;
-  if (cond.max !== undefined && cond.max !== null && v > cond.max) return false;
+  var iv = null;
+  if (value && typeof value === 'object' && value.lo !== undefined) iv = value;
+  else if (typeof value === 'number' && !isNaN(value)) iv = { lo: value, hi: value };
+  if (!iv) return false;
+  if (cond.min !== undefined && cond.min !== null && cond.min !== '' && iv.hi < Number(cond.min)) return false;
+  if (cond.max !== undefined && cond.max !== null && cond.max !== '' && iv.lo > Number(cond.max)) return false;
   return true;
 }
 
@@ -145,7 +162,7 @@ function validateFilters_(filters) {
 
 /** 事例検索シートを読み込む。 */
 function readSearchRows_() {
-  return readRows_(getSearchSheet_(), SEARCH_COLUMN_MAP, SEARCH_NUMERIC_KEYS, SEARCH_MULTI_VALUE_KEYS);
+  return readRows_(getSearchSheet_(), SEARCH_COLUMN_MAP, SEARCH_NUMERIC_KEYS, SEARCH_MULTI_VALUE_KEYS, SEARCH_RANGE_KEYS);
 }
 
 /**
