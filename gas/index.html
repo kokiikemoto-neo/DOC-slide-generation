@@ -3,23 +3,27 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
-  <title>SlideGen 企業検索</title>
+  <title>SlideGen 事例ツール</title>
   <style>
     :root { --ink:#1E1D56; --accent:#5B6BF5; --line:#DFDEFD; --bg:#F4F4FE; }
     * { box-sizing: border-box; }
-    body { font-family: "Noto Sans JP", system-ui, sans-serif; color: var(--ink); background: var(--bg); margin: 0; padding: 24px; }
-    h1 { font-size: 20px; margin: 0 0 16px; }
+    body { font-family:"Noto Sans JP", system-ui, sans-serif; color:var(--ink); background:var(--bg); margin:0; padding:24px; }
+    h1 { font-size:20px; margin:0 0 16px; }
+    .tabs { display:flex; gap:8px; margin-bottom:16px; }
+    .tab { padding:9px 18px; border:1px solid var(--line); border-bottom:none; border-radius:10px 10px 0 0; background:#ececfb; cursor:pointer; font-weight:bold; }
+    .tab.on { background:#fff; color:var(--accent); }
     .panel { background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:16px; }
-    label.fld { display:block; font-size:12px; font-weight:bold; margin-bottom:6px; }
-    input[type=text], input[type=number] { width:100%; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:14px; }
+    .hidden { display:none; }
+    label.fld { display:block; font-size:12px; font-weight:bold; margin:12px 0 6px; }
+    input[type=text], input[type=url], input[type=number], textarea, select { width:100%; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:14px; font-family:inherit; }
+    textarea { min-height:70px; resize:vertical; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 20px; }
     .range { display:flex; align-items:center; gap:8px; }
-    .range input { width:100%; }
     .tags { display:flex; flex-wrap:wrap; gap:8px; max-height:120px; overflow:auto; }
     .tag { font-size:13px; border:1px solid var(--line); border-radius:999px; padding:4px 10px; cursor:pointer; user-select:none; background:#fff; }
     .tag.on { background:var(--accent); color:#fff; border-color:var(--accent); }
     .actions { margin-top:16px; display:flex; gap:12px; align-items:center; }
-    button { font-family:inherit; font-size:14px; border:none; border-radius:8px; padding:9px 16px; cursor:pointer; }
+    button { font-family:inherit; font-size:14px; border:none; border-radius:8px; padding:10px 18px; cursor:pointer; }
     .primary { background:var(--accent); color:#fff; }
     .primary:disabled { opacity:.5; cursor:default; }
     .ghost { background:#fff; border:1px solid var(--line); color:var(--ink); }
@@ -27,72 +31,162 @@
     th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
     th { font-size:12px; color:#6b6b8a; }
     .muted { color:#8a8aa6; font-size:13px; }
-    .gen-result a { color:var(--accent); }
-    .spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; }
-    @keyframes spin { to { transform: rotate(360deg); } }
     .err { color:#c0392b; }
+    .ok { color:#1f9d55; }
+    a { color:var(--accent); }
+    .spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:middle; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    iframe { width:100%; height:432px; border:1px solid var(--line); border-radius:8px; margin-top:10px; }
+    .result-box { margin-top:16px; padding:14px; border:1px dashed var(--accent); border-radius:10px; background:#fafaff; }
   </style>
 </head>
 <body>
-  <h1>SlideGen 企業検索</h1>
+  <h1>SlideGen 事例ツール</h1>
 
-  <div class="panel">
-    <div class="grid">
-      <div>
-        <label class="fld">採用人数（範囲）</label>
-        <div class="range">
-          <input type="number" id="hireMin" placeholder="min">
-          <span>〜</span>
-          <input type="number" id="hireMax" placeholder="max">
-        </div>
-      </div>
+  <div class="tabs">
+    <div class="tab on" id="tab-gen" onclick="showTab('gen')">事例生成</div>
+    <div class="tab" id="tab-search" onclick="showTab('search')">事例検索</div>
+  </div>
+
+  <!-- ===================== 生成タブ ===================== -->
+  <div class="panel" id="view-gen">
+    <div class="muted">各項目を入力して「実行」を押すと、生成シートに保存→スライド生成→検索シートの同じ管理No.行に営業資料URLを書き戻します。</div>
+    <div id="genForm" class="grid2"></div>
+    <div class="actions">
+      <button class="primary" id="genBtn" onclick="doGenerate()">実行（保存＆生成）</button>
+      <span id="genStatus" class="muted"></span>
+    </div>
+    <div id="genResult"></div>
+  </div>
+
+  <!-- ===================== 検索タブ ===================== -->
+  <div class="panel hidden" id="view-search">
+    <div class="grid2">
       <div>
         <label class="fld">企業名（部分一致）</label>
-        <input type="text" id="nameContains" placeholder="例: テック">
+        <input type="text" id="s_name" placeholder="例: ネオ">
       </div>
       <div>
-        <label class="fld">売れたニーズ（複数選択）</label>
-        <div class="tags" id="facet-soldNeeds"><span class="muted">読み込み中…</span></div>
+        <label class="fld">採用人数(新卒)（範囲）</label>
+        <div class="range"><input type="number" id="s_hireMin" placeholder="min"><span>〜</span><input type="number" id="s_hireMax" placeholder="max"></div>
       </div>
       <div>
-        <label class="fld">業種（複数選択）</label>
+        <label class="fld">業種</label>
         <div class="tags" id="facet-industry"><span class="muted">読み込み中…</span></div>
+      </div>
+      <div>
+        <label class="fld">地域</label>
+        <div class="tags" id="facet-region"><span class="muted">読み込み中…</span></div>
+      </div>
+      <div>
+        <label class="fld">採用課題</label>
+        <div class="tags" id="facet-challenge"><span class="muted">読み込み中…</span></div>
       </div>
     </div>
     <div class="actions">
       <button class="primary" id="searchBtn" onclick="doSearch()">検索</button>
-      <button class="ghost" onclick="resetForm()">条件クリア</button>
+      <button class="ghost" onclick="resetSearch()">条件クリア</button>
       <span id="searchStatus" class="muted"></span>
     </div>
-  </div>
-
-  <div class="panel">
-    <div id="resultMeta" class="muted">条件を指定して検索してください。</div>
+    <div id="resultMeta" class="muted" style="margin-top:12px;">条件を指定して検索してください。</div>
     <div id="resultWrap"></div>
   </div>
 
 <script>
-  // 全行のキャッシュ（生成時に行データを参照するため index で保持）
-  var lastRows = [];
-  var selected = { soldNeeds: {}, industry: {} };
+  // ---------- タブ切り替え ----------
+  function showTab(name) {
+    document.getElementById('view-gen').classList.toggle('hidden', name !== 'gen');
+    document.getElementById('view-search').classList.toggle('hidden', name !== 'search');
+    document.getElementById('tab-gen').classList.toggle('on', name === 'gen');
+    document.getElementById('tab-search').classList.toggle('on', name === 'search');
+    if (name === 'search' && !facetsLoaded) loadFacets();
+  }
 
-  function onLoad() {
+  function esc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]; }); }
+  function setText(id, t, isErr, isOk) { var el = document.getElementById(id); el.textContent = t; el.className = (isErr?'err':isOk?'ok':'muted'); }
+
+  // ===================== 生成タブ =====================
+  var genFields = [];
+
+  function buildGenForm(fields) {
+    genFields = fields || [];
+    var html = '';
+    genFields.forEach(function (f) {
+      var input;
+      if (f.type === 'textarea') input = '<textarea id="g_' + f.key + '"></textarea>';
+      else input = '<input type="' + (f.type === 'url' ? 'url' : 'text') + '" id="g_' + f.key + '">';
+      html += '<div><label class="fld">' + esc(f.label) + '</label>' + input + '</div>';
+    });
+    document.getElementById('genForm').innerHTML = html;
+  }
+
+  function collectForm() {
+    var form = {};
+    genFields.forEach(function (f) {
+      var el = document.getElementById('g_' + f.key);
+      form[f.key] = el ? el.value : '';
+    });
+    return form;
+  }
+
+  function embedUrl(url) {
+    var m = String(url).match(/\/d\/([a-zA-Z0-9_-]+)/);
+    return m ? 'https://docs.google.com/presentation/d/' + m[1] + '/embed?start=false&loop=false' : '';
+  }
+
+  function doGenerate() {
+    var btn = document.getElementById('genBtn');
+    btn.disabled = true;
+    setText('genStatus', '保存＆生成中…（数十秒かかる場合があります）');
+    document.getElementById('genResult').innerHTML = '<span class="spinner"></span>';
     google.script.run
-      .withSuccessHandler(renderFacets)
+      .withSuccessHandler(function (res) {
+        btn.disabled = false;
+        if (res && res.ok) {
+          setText('genStatus', '完了', false, true);
+          var wb = res.writeback || {};
+          var emb = embedUrl(res.presentationUrl);
+          document.getElementById('genResult').innerHTML =
+            '<div class="result-box"><h3 style="margin:0 0 8px;">完成制作物</h3>' +
+            '<a href="' + res.presentationUrl + '" target="_blank" rel="noopener">スライドを開く ↗</a>' +
+            '<div class="muted" style="margin-top:6px;">保存: 生成シート ' + res.savedRow + ' 行目 / 書き戻し: ' +
+            (wb.wrote ? '<span class="ok">' + esc(wb.note) + '</span>' : '<span class="err">' + esc(wb.note || '未実施') + '</span>') + '</div>' +
+            (emb ? '<iframe src="' + emb + '"></iframe>' : '') +
+            '</div>';
+        } else {
+          setText('genStatus', '失敗', true);
+          document.getElementById('genResult').innerHTML = '<div class="err">失敗: ' + esc((res && res.error) || '不明なエラー') + '</div>';
+        }
+      })
+      .withFailureHandler(function (e) {
+        btn.disabled = false;
+        setText('genStatus', '失敗', true);
+        document.getElementById('genResult').innerHTML = '<div class="err">失敗: ' + esc(e.message) + '</div>';
+      })
+      .saveAndGenerate(collectForm());
+  }
+
+  // ===================== 検索タブ =====================
+  var facetsLoaded = false;
+  var lastRows = [];
+  var selected = { industry: {}, region: {}, challenge: {} };
+
+  function loadFacets() {
+    google.script.run
+      .withSuccessHandler(function (facets) { facetsLoaded = true; renderFacets(facets); })
       .withFailureHandler(function (e) { setText('searchStatus', 'ファセット取得失敗: ' + e.message, true); })
       .getFacets();
   }
 
   function renderFacets(facets) {
-    ['soldNeeds', 'industry'].forEach(function (key) {
+    ['industry', 'region', 'challenge'].forEach(function (key) {
       var box = document.getElementById('facet-' + key);
       box.innerHTML = '';
       var vals = (facets && facets[key]) || [];
-      if (vals.length === 0) { box.innerHTML = '<span class="muted">（候補なし）</span>'; return; }
+      if (!vals.length) { box.innerHTML = '<span class="muted">（候補なし）</span>'; return; }
       vals.forEach(function (v) {
         var el = document.createElement('span');
-        el.className = 'tag';
-        el.textContent = v;
+        el.className = 'tag'; el.textContent = v;
         el.onclick = function () {
           if (selected[key][v]) { delete selected[key][v]; el.classList.remove('on'); }
           else { selected[key][v] = true; el.classList.add('on'); }
@@ -103,102 +197,52 @@
   }
 
   function buildFilters() {
-    var filters = {};
-    var min = document.getElementById('hireMin').value;
-    var max = document.getElementById('hireMax').value;
-    if (min !== '' || max !== '') {
-      filters.hireCount = { type: 'range' };
-      if (min !== '') filters.hireCount.min = Number(min);
-      if (max !== '') filters.hireCount.max = Number(max);
-    }
-    var needs = Object.keys(selected.soldNeeds);
-    if (needs.length) filters.soldNeeds = { type: 'in', values: needs };
-    var inds = Object.keys(selected.industry);
-    if (inds.length) filters.industry = { type: 'in', values: inds };
-    var nameV = document.getElementById('nameContains').value.trim();
-    if (nameV) filters.name = { type: 'contains', value: nameV };
-    return filters;
+    var f = {};
+    var min = document.getElementById('s_hireMin').value, max = document.getElementById('s_hireMax').value;
+    if (min !== '' || max !== '') { f.hireCount = { type: 'range' }; if (min !== '') f.hireCount.min = Number(min); if (max !== '') f.hireCount.max = Number(max); }
+    ['industry', 'region', 'challenge'].forEach(function (key) {
+      var vals = Object.keys(selected[key]); if (vals.length) f[key] = { type: 'in', values: vals };
+    });
+    var nm = document.getElementById('s_name').value.trim(); if (nm) f.name = { type: 'contains', value: nm };
+    return f;
   }
 
   function doSearch() {
-    var btn = document.getElementById('searchBtn');
-    btn.disabled = true;
-    setText('searchStatus', '検索中…');
+    var btn = document.getElementById('searchBtn'); btn.disabled = true; setText('searchStatus', '検索中…');
     google.script.run
-      .withSuccessHandler(function (res) {
-        btn.disabled = false;
-        setText('searchStatus', '');
-        renderResults(res);
-      })
-      .withFailureHandler(function (e) {
-        btn.disabled = false;
-        setText('searchStatus', '検索失敗: ' + e.message, true);
-      })
+      .withSuccessHandler(function (res) { btn.disabled = false; setText('searchStatus', ''); renderResults(res); })
+      .withFailureHandler(function (e) { btn.disabled = false; setText('searchStatus', '検索失敗: ' + e.message, true); })
       .searchCompanies(buildFilters());
   }
+
+  function link(u) { return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">開く ↗</a>' : ''; }
+  function arr(a) { return Array.isArray(a) ? a.join('、') : (a || ''); }
 
   function renderResults(res) {
     lastRows = (res && res.rows) || [];
     document.getElementById('resultMeta').textContent = (res ? res.count : 0) + ' 件ヒット';
     var wrap = document.getElementById('resultWrap');
     if (!lastRows.length) { wrap.innerHTML = '<p class="muted">該当なし</p>'; return; }
-
-    var html = '<table><thead><tr>' +
-      '<th>企業名</th><th>採用人数</th><th>売れたニーズ</th><th>業種</th><th>操作</th>' +
-      '</tr></thead><tbody>';
-    lastRows.forEach(function (r, i) {
-      html += '<tr>' +
-        '<td>' + esc(r.name) + '</td>' +
-        '<td>' + (r.hireCount == null ? '' : r.hireCount) + '</td>' +
-        '<td>' + esc(arr(r.soldNeeds)) + '</td>' +
-        '<td>' + esc(arr(r.industry)) + '</td>' +
-        '<td><button class="primary" onclick="doGenerate(' + i + ', this)">スライド生成</button>' +
-        '<div class="gen-result" id="gen-' + i + '"></div></td>' +
-        '</tr>';
+    var html = '<table><thead><tr><th>ID</th><th>企業名</th><th>業種</th><th>地域</th><th>採用課題</th><th>営業資料</th><th>DOC</th></tr></thead><tbody>';
+    lastRows.forEach(function (r) {
+      html += '<tr><td>' + esc(r.id) + '</td><td>' + esc(r.name) + '</td><td>' + esc(arr(r.industry)) + '</td>' +
+        '<td>' + esc(arr(r.region)) + '</td><td>' + esc(arr(r.challenge)) + '</td>' +
+        '<td>' + link(r.salesDocUrl) + '</td><td>' + link(r.docUrl) + '</td></tr>';
     });
     html += '</tbody></table>';
     wrap.innerHTML = html;
   }
 
-  function doGenerate(index, btn) {
-    var row = lastRows[index];
-    if (!row) return;
-    btn.disabled = true;
-    var cell = document.getElementById('gen-' + index);
-    cell.innerHTML = '<span class="spinner"></span> 生成中…';
-    google.script.run
-      .withSuccessHandler(function (res) {
-        btn.disabled = false;
-        if (res && res.ok && res.presentationUrl) {
-          cell.innerHTML = '<a href="' + res.presentationUrl + '" target="_blank" rel="noopener">スライドを開く ↗</a>';
-        } else {
-          cell.innerHTML = '<span class="err">失敗: ' + esc((res && res.error) || '不明なエラー') + '</span>';
-        }
-      })
-      .withFailureHandler(function (e) {
-        btn.disabled = false;
-        cell.innerHTML = '<span class="err">失敗: ' + esc(e.message) + '</span>';
-      })
-      .generateSlide({ row: row });
-  }
-
-  function resetForm() {
-    document.getElementById('hireMin').value = '';
-    document.getElementById('hireMax').value = '';
-    document.getElementById('nameContains').value = '';
-    selected = { soldNeeds: {}, industry: {} };
+  function resetSearch() {
+    document.getElementById('s_name').value = '';
+    document.getElementById('s_hireMin').value = '';
+    document.getElementById('s_hireMax').value = '';
+    selected = { industry: {}, region: {}, challenge: {} };
     document.querySelectorAll('.tag.on').forEach(function (el) { el.classList.remove('on'); });
   }
 
-  function setText(id, text, isErr) {
-    var el = document.getElementById(id);
-    el.textContent = text;
-    el.className = 'muted' + (isErr ? ' err' : '');
-  }
-  function esc(s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) { return ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'})[c]; }); }
-  function arr(a) { return Array.isArray(a) ? a.join('、') : (a || ''); }
-
-  onLoad();
+  // ---------- 初期化 ----------
+  google.script.run.withSuccessHandler(buildGenForm).getGenFields();
 </script>
 </body>
 </html>

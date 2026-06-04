@@ -1,17 +1,16 @@
 /**
- * 設定: 列名マップ・区切り文字・Script Properties 読み取り。
- * 実シートに合わせて COLUMN_MAP を編集してください（既定は「事例生成シート」のヘッダー）。
+ * 設定: 2シート構成（事例生成シート／事例検索シート）の列名マップ・区切り文字・
+ * Script Properties 読み取り。実シートに合わせて GEN_COLUMN_MAP / SEARCH_COLUMN_MAP を編集してください。
  * 機密（NODE_RENDER_URL / RENDER_API_KEY）はコードに書かず Script Properties から読みます。
  */
 
-/**
- * 論理キー → スプレッドシートのヘッダー名。
- * 既定は「事例生成シート」(1行=1事例) のヘッダーに対応。実シートに合わせて調整する。
- * 各列のスライド対応: logoUrl→logo / tagline→tagline / qrUrl→qr /
- *   image1Url→frame1 / head1→①見出し / body1→①本文 /
- *   image2Url→frame2 / head2→②見出し / body2→②本文。caseId/name は識別・代替用。
- */
-var COLUMN_MAP = {
+// ============================================================
+// 事例生成シート（生成タブの入力フォームの保存先 / 1行=1事例）
+// 各列 → スライドスロット: logoUrl→logo / tagline→tagline / qrUrl→qr /
+//   image1Url→frame1 / head1→①見出し / body1→①本文 /
+//   image2Url→frame2 / head2→②見出し / body2→②本文。caseId/name は識別・代替用。
+// ============================================================
+var GEN_COLUMN_MAP = {
   caseId:    '管理No.',
   name:      '企業名',
   logoUrl:   '企業ロゴ',
@@ -25,18 +24,58 @@ var COLUMN_MAP = {
   body2:     '画像②の詳細'
 };
 
-/** 数値として解釈する論理キー（range フィルタ対象）。生成シートには無いので空。 */
-var NUMERIC_KEYS = [];
+/** 生成フォームの入力項目（表示順）。type は UI のための目安。 */
+var GEN_FIELDS = [
+  { key: 'caseId',    label: '管理No.（検索シートのIDと一致させる）', type: 'text' },
+  { key: 'name',      label: '企業名',            type: 'text' },
+  { key: 'logoUrl',   label: '企業ロゴ（画像URL）', type: 'url' },
+  { key: 'tagline',   label: '活用背景一言',       type: 'text' },
+  { key: 'qrUrl',     label: 'QRコード（画像URL）', type: 'url' },
+  { key: 'image1Url', label: '画像①（画像URL）',   type: 'url' },
+  { key: 'head1',     label: '画像①のタイトル',    type: 'text' },
+  { key: 'body1',     label: '画像①の詳細',        type: 'textarea' },
+  { key: 'image2Url', label: '画像②（画像URL）',   type: 'url' },
+  { key: 'head2',     label: '画像②のタイトル',    type: 'text' },
+  { key: 'body2',     label: '画像②の詳細',        type: 'textarea' }
+];
 
-/** 複数値セルとして split する論理キー（in フィルタでタグ判定）。生成シートには無いので空。 */
-var MULTI_VALUE_KEYS = [];
+// ============================================================
+// 事例検索シート（検索タブ / 生成URLの書き戻し先 / 1行=1事例）
+// ============================================================
+var SEARCH_COLUMN_MAP = {
+  id:          'ID',
+  name:        '企業名',
+  industry:    '業種',
+  hireCount:   '採用人数(新卒)',
+  empScale:    '従業員規模',
+  hq:          '本社所在地',
+  region:      '地域',
+  media:       '掲載媒体',
+  challenge:   '採用課題',
+  docUrl:      'DOC_URL',
+  salesDocUrl: '営業資料URL',
+  lpUrl:       'LPURL'
+};
+
+/** 検索シートで数値として解釈する論理キー（range フィルタ対象）。 */
+var SEARCH_NUMERIC_KEYS = ['hireCount'];
+
+/** 検索シートで複数値セルとして split する論理キー（in フィルタでタグ判定）。 */
+var SEARCH_MULTI_VALUE_KEYS = ['industry', 'region', 'media', 'challenge'];
+
+/** 検索UIのファセット（複数選択候補）を出す論理キー。 */
+var SEARCH_FACET_KEYS = ['industry', 'region', 'challenge'];
+
+/** 突合キー: 生成シートの caseId(管理No.) ＝ 検索シートの id(ID)。 */
+var MATCH_GEN_KEY = 'caseId';
+var MATCH_SEARCH_KEY = 'id';
 
 /** 複数値セルの区切り: カンマ既定。全角カンマ・読点・セミコロン(半/全角)・改行もフォールバック許容。 */
 var MULTI_VALUE_SPLIT = /[,、，;；\n\r]+/;
 
-/** UI のファセット（複数選択候補）を出す論理キー。生成シートには無いので空。 */
-var FACET_KEYS = [];
-
+// ============================================================
+// Script Properties
+// ============================================================
 function _props() {
   return PropertiesService.getScriptProperties();
 }
@@ -46,18 +85,24 @@ function getProp_(name, fallback) {
   return (v === null || v === undefined || v === '') ? (fallback === undefined ? '' : fallback) : v;
 }
 
+/** 生成シート名（既定 "事例生成シート"）。 */
+function genSheetName_() { return getProp_('GEN_SHEET_NAME', '事例生成シート'); }
+/** 検索シート名（既定 "事例検索シート"）。 */
+function searchSheetName_() { return getProp_('SEARCH_SHEET_NAME', '事例検索シート'); }
+/** 生成URLの書き戻し先ヘッダー（既定 "営業資料URL"）。列移動しても名前で引くので追従。 */
+function writebackHeader_() { return getProp_('WRITEBACK_HEADER', '営業資料URL'); }
+
 /** SPREADSHEET_ID に URL を貼られても ID を抽出する（/d/<id>/ もしくは ID そのもの）。 */
 function normalizeSpreadsheetId_(raw) {
   if (!raw) return '';
   var s = String(raw).trim();
   var m = s.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (m) return m[1];
-  // 余計なクエリ等が付いていても ID 部分だけ拾う
   var m2 = s.match(/[a-zA-Z0-9_-]{30,}/);
   return m2 ? m2[0] : s;
 }
 
-/** 検索対象スプレッドシート。SPREADSHEET_ID プロパティ優先、無ければアクティブ（コンテナバインド時）。 */
+/** 対象スプレッドシート。SPREADSHEET_ID プロパティ優先、無ければアクティブ（コンテナバインド時）。 */
 function getSpreadsheet_() {
   var id = normalizeSpreadsheetId_(getProp_('SPREADSHEET_ID', ''));
   if (id) return SpreadsheetApp.openById(id);
@@ -66,42 +111,23 @@ function getSpreadsheet_() {
   throw new Error('SPREADSHEET_ID が未設定です。スクリプトプロパティに対象スプレッドシートのIDを設定してください。');
 }
 
-/** 対象シート。SHEET_NAME プロパティ（既定 "事例生成シート"）。 */
-function getSheet_() {
+/** 名前でシート取得。無ければ実在シート一覧付きで例外。 */
+function getSheetByName_(name) {
   var ss = getSpreadsheet_();
-  var name = getProp_('SHEET_NAME', '事例生成シート');
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     var names = ss.getSheets().map(function (s) { return s.getName(); });
-    throw new Error('シート "' + name + '" が見つかりません。実在するシート: [' + names.join(', ') +
-      ']。SHEET_NAME を実シート名に設定するか Config.gs の既定を変更してください。');
+    throw new Error('シート "' + name + '" が見つかりません。実在するシート: [' + names.join(', ') + ']。');
   }
   return sheet;
 }
 
-/**
- * エディタから手動実行: スプレッドシート内の全シート名と、対象シートの1行目ヘッダーをログ出力。
- * SHEET_NAME が未一致でも、先頭シートにフォールバックしてヘッダーを表示する（実列名の発見用）。
- */
-function inspectHeaders() {
-  var ss = getSpreadsheet_();
-  var allNames = ss.getSheets().map(function (s) { return s.getName(); });
-  Logger.log('スプレッドシート内のシート一覧: %s', JSON.stringify(allNames));
+function getGenSheet_() { return getSheetByName_(genSheetName_()); }
+function getSearchSheet_() { return getSheetByName_(searchSheetName_()); }
 
-  var wanted = getProp_('SHEET_NAME', '事例生成シート');
-  var sheet = ss.getSheetByName(wanted);
-  if (!sheet) {
-    sheet = ss.getSheets()[0];
-    Logger.log('SHEET_NAME="%s" は未一致。先頭シート "%s" のヘッダーを表示します。', wanted, sheet.getName());
-    Logger.log('→ このシートを使うなら スクリプトプロパティ SHEET_NAME に "%s" を設定してください。', sheet.getName());
-  } else {
-    Logger.log('対象シート: "%s"', sheet.getName());
-  }
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  Logger.log('ヘッダー(%s列): %s', headers.length, JSON.stringify(headers));
-  return headers;
-}
-
+// ============================================================
+// 調査用ヘルパ（エディタから手動実行）
+// ============================================================
 function _colLabel_(i) {
   var s = '';
   i = i + 1;
@@ -127,10 +153,7 @@ function _dumpSheet_(sheet, nRows) {
   }
 }
 
-/**
- * エディタから手動実行: スプレッドシート内の【全タブ】の先頭数行を列ごとにダンプする。
- * タブ名が不明でも、これ一発で事例生成シート等の構造（ヘッダー行・各列の中身）が分かる。
- */
+/** 全タブの先頭数行を列ごとにダンプ（タブ名・列構成の確認用）。 */
 function inspectRows() {
   var ss = getSpreadsheet_();
   var sheets = ss.getSheets();

@@ -1,36 +1,44 @@
 /**
  * Web アプリのエントリ: doGet(UI) / doPost(JSON API)。
- * 検索は Search.gs、Node 中継は generateSlide()（Step 11 で実装）。
+ * 生成タブ: フォーム入力 → 生成シートへ保存(upsert) → Node /render → 検索シートへURL書き戻し。
+ * 検索タブ: 事例検索シートをフィルタ表示（Search.gs）。
  */
 
 /** UI を返す。 */
 function doGet() {
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
-    .setTitle('SlideGen 企業検索')
+    .setTitle('SlideGen 事例ツール')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/** index.html から <?!= include('partial') ?> で部分テンプレを取り込む用。 */
+/** index.html から取り込む用。 */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+/** 生成フォームの項目定義を UI へ渡す。 */
+function getGenFields() {
+  return GEN_FIELDS;
+}
+
 /**
- * JSON API。外部/プログラムからの利用向け（UI は google.script.run を使う）。
- * body: { action: 'search', filters: {...} } | { action: 'generate', content|row: {...} }
- * action 省略時は search 扱い（search-filter.schema.json 準拠の { filters } を直接受ける）。
+ * JSON API（外部/プログラム利用）。UI は google.script.run を使う。
+ * body: { action:'search', filters }
+ *     | { action:'generate', content|row, caseId }
+ *     | { action:'saveAndGenerate', form }
  */
 function doPost(e) {
   var out = ContentService.createTextOutput().setMimeType(ContentService.MimeType.JSON);
   try {
     var body = (e && e.postData && e.postData.contents) ? JSON.parse(e.postData.contents) : {};
     var action = body.action || 'search';
-
     if (action === 'search') {
       out.setContent(JSON.stringify(searchCompanies(body.filters || {})));
     } else if (action === 'generate') {
       out.setContent(JSON.stringify(generateSlide(body)));
+    } else if (action === 'saveAndGenerate') {
+      out.setContent(JSON.stringify(saveAndGenerate(body.form || {})));
     } else {
       out.setContent(JSON.stringify({ ok: false, error: 'unknown action: ' + action }));
     }
@@ -40,80 +48,51 @@ function doPost(e) {
   return out;
 }
 
-/**
- * Sheets の1行 → Node /render が期待する content(7スロット) へマッピング。
- * 対応は integration-gas-node.md §2「用途」列 / §4 の契約に準拠。
- */
-function buildContentFromRow_(row) {
+// ============================================================
+// content マッピング
+// ============================================================
+
+/** 生成フォーム（GEN_FIELDS のキー）→ スライド content(7+2スロット)。 */
+function buildContentFromForm_(form) {
+  form = form || {};
   return {
-    logo:    String(row.logoUrl   || ''),
-    tagline: String(row.tagline   || row.name || ''),
-    qr:      String(row.qrUrl     || ''),
-    frame1:  String(row.image1Url || ''),
-    head1:   String(row.head1     || ''),
-    body1:   String(row.body1     || ''),
-    frame2:  String(row.image2Url || ''),
-    head2:   String(row.head2     || ''),
-    body2:   String(row.body2     || '')
+    logo:    String(form.logoUrl   || ''),
+    tagline: String(form.tagline   || form.name || ''),
+    qr:      String(form.qrUrl     || ''),
+    frame1:  String(form.image1Url || ''),
+    head1:   String(form.head1     || ''),
+    body1:   String(form.body1     || ''),
+    frame2:  String(form.image2Url || ''),
+    head2:   String(form.head2     || ''),
+    body2:   String(form.body2     || '')
   };
 }
 
-/** content の画像スロット（必須・非空）を事前チェックして分かりやすいエラーにする。 */
+/** 生成シートの行オブジェクト（GEN_COLUMN_MAP キー）→ content。 */
+function buildContentFromRow_(row) {
+  return buildContentFromForm_(row || {});
+}
+
+/** content の画像スロット（必須・非空）を事前チェック。 */
 function missingImageSlots_(content) {
   return ['logo', 'qr', 'frame1', 'frame2'].filter(function (k) {
     return !content[k] || String(content[k]).trim() === '';
   });
 }
 
-/** ヘッダー名から1-based列番号を返す（無ければ -1）。 */
-function columnIndexByHeader_(sheet, header) {
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  for (var i = 0; i < headers.length; i++) {
-    if (String(headers[i]).trim() === header) return i + 1;
-  }
-  return -1;
-}
-
-/** 任意: 生成URLを Sheets の該当行へ書き戻す（URL_WRITEBACK_HEADER 設定時のみ）。 */
-function writebackUrl_(row, url) {
-  var header = getProp_('URL_WRITEBACK_HEADER', '');
-  if (!header || !row || !row._row) return false;
-  try {
-    var sheet = getSheet_();
-    var col = columnIndexByHeader_(sheet, header);
-    if (col < 0) return false; // 列が無ければ静かにスキップ
-    sheet.getRange(row._row, col).setValue(url);
-    return true;
-  } catch (e) {
-    // 書き戻し失敗は生成自体を妨げない
-    return false;
-  }
-}
-
-/**
- * 選択企業をスライド生成（Node /render へ中継）。
- * payload: { row: {...readCompanies_ の行...} } もしくは { content: {7slots} }
- * 返り値: { ok, presentationUrl, wroteBack } / { ok:false, error }
- */
-function generateSlide(payload) {
-  payload = payload || {};
-  var row = payload.row || null;
-  var content = payload.content || (row ? buildContentFromRow_(row) : null);
-  if (!content) {
-    return { ok: false, error: 'row も content も渡されていません。' };
-  }
-
+// ============================================================
+// Node /render 呼び出し（共通）
+// ============================================================
+function callNodeRender_(content) {
   var missing = missingImageSlots_(content);
   if (missing.length) {
-    return { ok: false, error: '画像URLが未設定の行です（' + missing.join(', ') + '）。Sheets の該当列を確認してください。' };
+    return { ok: false, error: '画像URLが未設定です（' + missing.join(', ') + '）。' };
   }
-
   var url = getProp_('NODE_RENDER_URL', '');
   var apiKey = getProp_('RENDER_API_KEY', '');
   if (!url || !apiKey) {
-    return { ok: false, error: 'NODE_RENDER_URL / RENDER_API_KEY が未設定です。スクリプトプロパティを確認してください（gas/README.md）。' };
+    return { ok: false, error: 'NODE_RENDER_URL / RENDER_API_KEY が未設定です（スクリプトプロパティを確認）。' };
   }
-
   var resp;
   try {
     resp = UrlFetchApp.fetch(url, {
@@ -127,17 +106,128 @@ function generateSlide(payload) {
   } catch (e) {
     return { ok: false, error: 'Node への接続に失敗しました: ' + ((e && e.message) || e) };
   }
-
   var code = resp.getResponseCode();
   var text = resp.getContentText();
   var data;
   try { data = JSON.parse(text); } catch (e) { data = null; }
-
   if (code < 200 || code >= 300 || !data || data.ok !== true) {
-    var msg = (data && data.error) ? data.error : ('HTTP ' + code + ': ' + text.slice(0, 300));
-    return { ok: false, error: msg };
+    return { ok: false, error: (data && data.error) ? data.error : ('HTTP ' + code + ': ' + text.slice(0, 300)) };
+  }
+  return { ok: true, presentationUrl: data.presentationUrl };
+}
+
+// ============================================================
+// 生成シートへの保存（upsert by 管理No.）
+// ============================================================
+function upsertGenRow_(form) {
+  var sheet = getGenSheet_();
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  var hIndex = {};
+  headers.forEach(function (h, i) { hIndex[h] = i; });
+
+  // GEN_COLUMN_MAP のヘッダーが無ければ末尾に追加
+  Object.keys(GEN_COLUMN_MAP).forEach(function (key) {
+    var h = GEN_COLUMN_MAP[key];
+    if (!(h in hIndex)) {
+      lastCol += 1;
+      sheet.getRange(1, lastCol).setValue(h);
+      hIndex[h] = lastCol - 1;
+    }
+  });
+
+  // 管理No. で既存行を探す（無ければ追記）
+  var caseIdCol0 = hIndex[GEN_COLUMN_MAP.caseId];
+  var caseIdVal = String(form.caseId || '').trim();
+  var targetRow = -1;
+  var n = sheet.getLastRow();
+  if (caseIdVal && n >= 2) {
+    var ids = sheet.getRange(2, caseIdCol0 + 1, n - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === caseIdVal) { targetRow = i + 2; break; }
+    }
+  }
+  if (targetRow < 0) targetRow = sheet.getLastRow() + 1;
+
+  // フォーム値を該当行へ書き込み（フォームが真実 = 全項目を反映）
+  Object.keys(GEN_COLUMN_MAP).forEach(function (key) {
+    var col = hIndex[GEN_COLUMN_MAP[key]] + 1;
+    var val = form[key];
+    sheet.getRange(targetRow, col).setValue(val === undefined || val === null ? '' : val);
+  });
+  return targetRow;
+}
+
+// ============================================================
+// 検索シートへの URL 書き戻し（管理No. == ID で突合）
+// ============================================================
+function writebackSearchUrl_(caseId, url) {
+  caseId = String(caseId || '').trim();
+  if (!caseId) return { wrote: false, note: '管理No.が空のため書き戻しスキップ' };
+
+  var sheet = getSearchSheet_();
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  var idHeader = SEARCH_COLUMN_MAP[MATCH_SEARCH_KEY]; // 'ID'
+  var wbHeader = writebackHeader_();                  // '営業資料URL'
+
+  var idCol0 = headers.indexOf(idHeader);
+  if (idCol0 < 0) return { wrote: false, note: '検索シートに "' + idHeader + '" 列がありません' };
+
+  var wbCol0 = headers.indexOf(wbHeader);
+  if (wbCol0 < 0) { wbCol0 = lastCol; sheet.getRange(1, wbCol0 + 1).setValue(wbHeader); } // 末尾に作成
+
+  var n = sheet.getLastRow();
+  if (n < 2) return { wrote: false, note: '検索シートにデータ行がありません' };
+
+  var ids = sheet.getRange(2, idCol0 + 1, n - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === caseId) {
+      sheet.getRange(i + 2, wbCol0 + 1).setValue(url);
+      return { wrote: true, note: '検索シート ' + (i + 2) + '行目「' + wbHeader + '」へ書き込み', row: i + 2 };
+    }
+  }
+  return { wrote: false, note: '検索シートに ID="' + caseId + '" の行が見つかりません' };
+}
+
+// ============================================================
+// 生成タブ: 保存 → 生成 → 書き戻し（UI から google.script.run で呼ぶ）
+// ============================================================
+function saveAndGenerate(form) {
+  form = form || {};
+
+  // 1) 生成シートへ保存（upsert）
+  var savedRow;
+  try {
+    savedRow = upsertGenRow_(form);
+  } catch (e) {
+    return { ok: false, error: '生成シートへの保存に失敗しました: ' + ((e && e.message) || e) };
   }
 
-  var wroteBack = writebackUrl_(row, data.presentationUrl);
-  return { ok: true, presentationUrl: data.presentationUrl, wroteBack: wroteBack };
+  // 2) Node でスライド生成
+  var content = buildContentFromForm_(form);
+  var gen = callNodeRender_(content);
+  if (!gen.ok) return { ok: false, error: gen.error, savedRow: savedRow };
+
+  // 3) 検索シートへ URL 書き戻し（管理No. == ID）
+  var wb = writebackSearchUrl_(form.caseId, gen.presentationUrl);
+
+  return { ok: true, presentationUrl: gen.presentationUrl, savedRow: savedRow, writeback: wb };
+}
+
+/**
+ * 既存行 or content から直接生成（doPost / 一覧運用向け）。
+ * payload: { content:{...} } | { row:{...GEN_COLUMN_MAP キー...} }, 任意 caseId。
+ */
+function generateSlide(payload) {
+  payload = payload || {};
+  var content = payload.content || (payload.row ? buildContentFromRow_(payload.row) : null);
+  if (!content) return { ok: false, error: 'row も content も渡されていません。' };
+
+  var gen = callNodeRender_(content);
+  if (!gen.ok) return gen;
+
+  var caseId = payload.caseId || (payload.row && payload.row.caseId) || '';
+  var wb = caseId ? writebackSearchUrl_(caseId, gen.presentationUrl) : { wrote: false, note: 'caseId 無し' };
+  return { ok: true, presentationUrl: gen.presentationUrl, writeback: wb };
 }
