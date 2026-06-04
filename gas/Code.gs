@@ -22,6 +22,26 @@ function getGenFields() {
   return GEN_FIELDS;
 }
 
+/** 管理No.プルダウン用: 事例検索シートの {id, name, docUrl} 一覧（id 昇順）。 */
+function getCaseOptions() {
+  var data = readSearchRows_();
+  return data.rows
+    .map(function (r) { return { id: String(r.id || ''), name: String(r.name || ''), docUrl: String(r.docUrl || '') }; })
+    .filter(function (o) { return o.id !== ''; })
+    .sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+}
+
+/** 検索シートから ID 一致の行を返す（無ければ null）。 */
+function findSearchRowById_(caseId) {
+  caseId = String(caseId || '').trim();
+  if (!caseId) return null;
+  var rows = readSearchRows_().rows;
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].id).trim() === caseId) return rows[i];
+  }
+  return null;
+}
+
 // ============================================================
 // 画像アップロード（フォームのファイル選択 → Drive 公開URL化）
 // ============================================================
@@ -113,24 +133,29 @@ function missingImageSlots_(content) {
 
 // ============================================================
 // Node /render 呼び出し（共通）
+// qrText を渡すと Node 側が QR を生成して content.qr に差し込む（DOC_URL → QR）。
 // ============================================================
-function callNodeRender_(content) {
-  var missing = missingImageSlots_(content);
+function callNodeRender_(content, qrText) {
+  // qrText がある場合 qr は Node が生成するのでチェック対象外
+  var slots = qrText ? ['logo', 'frame1', 'frame2'] : ['logo', 'qr', 'frame1', 'frame2'];
+  var missing = slots.filter(function (k) { return !content[k] || String(content[k]).trim() === ''; });
   if (missing.length) {
-    return { ok: false, error: '画像URLが未設定です（' + missing.join(', ') + '）。' };
+    return { ok: false, error: '画像が未設定です（' + missing.join(', ') + '）。' };
   }
   var url = getProp_('NODE_RENDER_URL', '');
   var apiKey = getProp_('RENDER_API_KEY', '');
   if (!url || !apiKey) {
     return { ok: false, error: 'NODE_RENDER_URL / RENDER_API_KEY が未設定です（スクリプトプロパティを確認）。' };
   }
+  var payload = { templateId: 'coming-soon-v1', content: content };
+  if (qrText) payload.qrText = String(qrText);
   var resp;
   try {
     resp = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
       headers: { 'X-Api-Key': apiKey },
-      payload: JSON.stringify({ templateId: 'coming-soon-v1', content: content }),
+      payload: JSON.stringify(payload),
       muteHttpExceptions: true,
       followRedirects: true
     });
@@ -227,6 +252,13 @@ function writebackSearchUrl_(caseId, url) {
 function saveAndGenerate(form) {
   form = form || {};
 
+  // 0) 検索シートの該当行を参照（企業名の自動補完・QR元のDOC_URL取得）
+  var searchRow = findSearchRowById_(form.caseId);
+  if (!form.name && searchRow) form.name = searchRow.name;
+  var docUrl = searchRow ? String(searchRow.docUrl || '') : '';
+  // 生成シートの「QRコード添付」列には QR の元になった DOC_URL を記録
+  form.qrUrl = docUrl;
+
   // 1) 生成シートへ保存（upsert）
   var savedRow;
   try {
@@ -235,15 +267,20 @@ function saveAndGenerate(form) {
     return { ok: false, error: '生成シートへの保存に失敗しました: ' + ((e && e.message) || e) };
   }
 
-  // 2) Node でスライド生成
+  // 2) QR の元 URL チェック
+  if (!docUrl) {
+    return { ok: false, error: '管理No.="' + (form.caseId || '') + '" の DOC_URL が検索シートに見つかりません（QRを生成できません）。', savedRow: savedRow };
+  }
+
+  // 3) Node でスライド生成（QR は docUrl から Node が生成）
   var content = buildContentFromForm_(form);
-  var gen = callNodeRender_(content);
+  var gen = callNodeRender_(content, docUrl);
   if (!gen.ok) return { ok: false, error: gen.error, savedRow: savedRow };
 
-  // 3) 検索シートへ URL 書き戻し（管理No. == ID）
+  // 4) 検索シートへ URL 書き戻し（管理No. == ID）
   var wb = writebackSearchUrl_(form.caseId, gen.presentationUrl);
 
-  return { ok: true, presentationUrl: gen.presentationUrl, savedRow: savedRow, writeback: wb };
+  return { ok: true, presentationUrl: gen.presentationUrl, savedRow: savedRow, writeback: wb, qrSource: docUrl };
 }
 
 /**

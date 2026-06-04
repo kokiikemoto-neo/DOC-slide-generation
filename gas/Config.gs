@@ -24,13 +24,16 @@ var GEN_COLUMN_MAP = {
   body2:     '画像②の詳細'
 };
 
-/** 生成フォームの入力項目（表示順）。type は UI のための目安。 */
+/**
+ * 生成フォームの入力項目（表示順）。type は UI のための目安。
+ * caseId は検索シートID一覧からの選択(select)、name は選択に応じて自動記入。
+ * QR は「検索シートの DOC_URL から自動生成」のためフォーム項目から除外（手入力させない）。
+ */
 var GEN_FIELDS = [
-  { key: 'caseId',    label: '管理No.（検索シートのIDと一致させる）', type: 'text' },
-  { key: 'name',      label: '企業名',            type: 'text' },
+  { key: 'caseId',    label: '管理No.（検索シートから選択）', type: 'select' },
+  { key: 'name',      label: '企業名（自動記入・編集可）',     type: 'text' },
   { key: 'logoUrl',   label: '企業ロゴ',           type: 'image' },
   { key: 'tagline',   label: '活用背景一言',       type: 'text' },
-  { key: 'qrUrl',     label: 'QRコード',          type: 'image' },
   { key: 'image1Url', label: '画像①',            type: 'image' },
   { key: 'head1',     label: '画像①のタイトル',    type: 'text' },
   { key: 'body1',     label: '画像①の詳細',        type: 'textarea' },

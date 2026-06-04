@@ -107,13 +107,52 @@
 
   // ===================== 生成タブ =====================
   var genFields = [];
+  var caseOptions = [];
+
+  // 管理No. プルダウンを検索シートから読み込む
+  function loadCaseOptions() {
+    google.script.run
+      .withSuccessHandler(function (opts) {
+        caseOptions = opts || [];
+        var sel = document.getElementById('g_caseId');
+        if (!sel) return;
+        caseOptions.forEach(function (o) {
+          var op = document.createElement('option');
+          op.value = o.id; op.textContent = o.id + (o.name ? (' — ' + o.name) : '');
+          sel.appendChild(op);
+        });
+      })
+      .withFailureHandler(function (e) { setText('genStatus', '管理No.一覧の取得に失敗: ' + e.message, true); })
+      .getCaseOptions();
+  }
+
+  // 管理No. 選択 → 企業名 自動記入 + QR元(DOC_URL)表示
+  function onCaseChange() {
+    var id = document.getElementById('g_caseId').value;
+    var opt = caseOptions.filter(function (o) { return o.id === id; })[0];
+    var nameEl = document.getElementById('g_name');
+    var qrInfo = document.getElementById('qrInfo');
+    if (opt) {
+      if (nameEl) nameEl.value = opt.name || '';
+      qrInfo.innerHTML = opt.docUrl
+        ? 'QR化対象 (DOC_URL): <a href="' + esc(opt.docUrl) + '" target="_blank" rel="noopener">' + esc(opt.docUrl) + '</a>'
+        : '<span class="err">この管理No.に DOC_URL がありません（QRを生成できません）。</span>';
+    } else {
+      if (nameEl) nameEl.value = '';
+      qrInfo.textContent = 'QR: 管理No.を選ぶと DOC_URL から自動生成します。';
+    }
+  }
 
   function buildGenForm(fields) {
     genFields = fields || [];
     var html = '';
     genFields.forEach(function (f) {
       var input;
-      if (f.type === 'image') {
+      if (f.type === 'select') {
+        input =
+          '<select id="g_' + f.key + '" onchange="onCaseChange()"><option value="">― 選択してください ―</option></select>' +
+          '<div class="muted" id="qrInfo" style="margin-top:6px;">QR: 管理No.を選ぶと DOC_URL から自動生成します。</div>';
+      } else if (f.type === 'image') {
         input =
           '<input type="file" accept="image/*" id="file_' + f.key + '" onchange="onPickImage(\'' + f.key + '\', this)">' +
           '<input type="text" id="g_' + f.key + '" placeholder="アップロード後URL（直接URL貼付も可）" style="margin-top:6px;">' +
@@ -280,7 +319,10 @@
   }
 
   // ---------- 初期化 ----------
-  google.script.run.withSuccessHandler(buildGenForm).getGenFields();
+  google.script.run.withSuccessHandler(function (fields) {
+    buildGenForm(fields);
+    loadCaseOptions();
+  }).getGenFields();
 </script>
 </body>
 </html>

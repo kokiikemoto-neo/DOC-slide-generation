@@ -16,6 +16,7 @@ import { renderToSlides } from "./render/googleSlides.js";
 import { AuthError } from "./render/auth.js";
 import { PerspectiveError } from "./render/perspective.js";
 import { ImageResolveError } from "./render/drive.js";
+import { renderQrToFile } from "./render/qr.js";
 import type { ComingSoonContent, StyleSpec } from "./types.js";
 
 loadEnv();
@@ -37,6 +38,8 @@ try {
 interface RenderRequestBody {
   templateId?: string;
   content?: unknown;
+  /** 指定時: この文字列(DOC_URL等)から QR を生成し content.qr に差し込む。 */
+  qrText?: string;
 }
 
 class HttpError extends Error {
@@ -100,8 +103,14 @@ async function handleRender(req: http.IncomingMessage, res: http.ServerResponse)
   if (templateId !== SUPPORTED_TEMPLATE) {
     throw new HttpError(400, `未対応の templateId: ${templateId}（対応: ${SUPPORTED_TEMPLATE}）`);
   }
-  if (parsed.content === undefined || parsed.content === null) {
+  if (parsed.content === undefined || parsed.content === null || typeof parsed.content !== "object") {
     throw new HttpError(400, "content がありません。");
+  }
+
+  // qrText が指定されていれば、その文字列(DOC_URL等)から QR を生成して content.qr に差し込む。
+  if (typeof parsed.qrText === "string" && parsed.qrText.trim() !== "") {
+    const qrPath = await renderQrToFile(parsed.qrText.trim());
+    (parsed.content as Record<string, unknown>).qr = qrPath;
   }
 
   // 既存の content スキーマで検証（throw: SchemaValidationError）

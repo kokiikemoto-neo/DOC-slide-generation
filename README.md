@@ -97,7 +97,7 @@ npm run serve            # 既定 http://localhost:8080
 | メソッド/パス | 説明 |
 |---|---|
 | `GET /health` | 死活監視。`{ ok: true }` |
-| `POST /render` | `{ templateId:"coming-soon-v1", content:{7slots} }` を生成し `{ ok, presentationUrl }` を返す。`X-Api-Key` ヘッダ必須（`RENDER_API_KEY` と照合） |
+| `POST /render` | `{ templateId:"coming-soon-v1", content:{...}, qrText? }` を生成し `{ ok, presentationUrl }` を返す。`X-Api-Key` ヘッダ必須（`RENDER_API_KEY` と照合）。`qrText` 指定時はその文字列(DOC_URL等)から QR を生成して `content.qr` に差し込む |
 
 ローカル疎通確認:
 
