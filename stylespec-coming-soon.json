@@ -1,0 +1,31 @@
+{
+  "version": "coming-soon-v1",
+  "pageSize": { "w": 960, "h": 540 },
+  "background": "assets/background.png",
+  "palette": { "pageBg": "#EAE7FB", "ink": "#3A3A5C", "frameGlowB": "#8AA0FF", "frameGlowP": "#C9A9F5", "numberFill": "#B7A6F0" },
+  "typography": {
+    "tagline": { "family": "Noto Sans JP", "weightHint": "bold",    "sizePt": 18, "color": "#3A3A5C", "align": "center" },
+    "heading": { "family": "Noto Sans JP", "weightHint": "bold",    "sizePt": 15, "color": "#3A3A5C", "align": "left" },
+    "body":    { "family": "Noto Sans JP", "weightHint": "regular", "sizePt": 13, "color": "#3A3A5C", "align": "left" }
+  },
+  "editableSlots": ["logo","tagline","qr","heading1","body1","frame1","heading2","body2","frame2"],
+  "regions": {
+    "logo":     { "type": "rect", "role": "image", "fit": "contain", "rect": { "x": 39,  "y": 27,  "w": 205, "h": 46 } },
+    "tagline":  { "type": "rect", "role": "text",  "style": "tagline", "rect": { "x": 286, "y": 27,  "w": 538, "h": 46 } },
+    "qr":       { "type": "rect", "role": "image", "fit": "contain", "rect": { "x": 853, "y": 21,  "w": 61,  "h": 58 } },
+    "heading1": { "type": "rect", "role": "text",  "style": "heading", "rect": { "x": 449, "y": 109, "w": 446, "h": 32 } },
+    "body1":    { "type": "rect", "role": "text",  "style": "body",    "rect": { "x": 415, "y": 178, "w": 480, "h": 107 } },
+    "heading2": { "type": "rect", "role": "text",  "style": "heading", "rect": { "x": 75,  "y": 332, "w": 446, "h": 32 } },
+    "body2":    { "type": "rect", "role": "text",  "style": "body",    "rect": { "x": 41,  "y": 400, "w": 480, "h": 107 } },
+    "frame1": { "type": "quad", "role": "image", "fit": "perspective",
+      "quad": { "tl": {"x":32.5,"y":108.5}, "tr": {"x":359.27,"y":144.75}, "br": {"x":385,"y":306}, "bl": {"x":46.38,"y":295.04} } },
+    "frame2": { "type": "quad", "role": "image", "fit": "perspective",
+      "quad": { "tl": {"x":580,"y":352.5}, "tr": {"x":909,"y":320.5}, "br": {"x":896,"y":502}, "bl": {"x":555.5,"y":508.5} } }
+  },
+  "notes": {
+    "source": "ユーザー確定の正規座標。背景画像 1780566770552（薄藤色版）に対応。",
+    "background": "Figma 960x540 を2x/3xで書き出し。発光フレーム・グラデ帯・丸数字を焼き込み済み。",
+    "frameQuad": "frame1/frame2はカード白内側の四隅。透視変換した画像をこのquadへ配置(Slidesは回転0)。",
+    "textColor": "本文/見出しは淡色背景のため濃色 ink(#3A3A5C)。"
+  }
+}

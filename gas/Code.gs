@@ -138,6 +138,33 @@ function buildContentFromRow_(row) {
   return buildContentFromForm_(row || {});
 }
 
+/**
+ * Node /render 呼び出し（USE_NODE=true のとき使用。透視変換=傾きが要る本番経路）。
+ * 画像は dataURL のまま送る。qrText に DOC_URL を渡すと Node 側が QR を生成。
+ * 返り値: { ok, url, shareNote } / { ok:false, error }
+ */
+function callNodeRender_(content, qrText) {
+  var url = getProp_('NODE_RENDER_URL', '');
+  var apiKey = getProp_('RENDER_API_KEY', '');
+  if (!url || !apiKey) return { ok: false, error: 'NODE_RENDER_URL / RENDER_API_KEY が未設定です。' };
+  var payload = { templateId: 'coming-soon-v1', content: content };
+  if (qrText) payload.qrText = String(qrText);
+  var resp;
+  try {
+    resp = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json',
+      headers: { 'X-Api-Key': apiKey }, payload: JSON.stringify(payload),
+      muteHttpExceptions: true, followRedirects: true
+    });
+  } catch (e) { return { ok: false, error: 'Node 接続失敗: ' + ((e && e.message) || e) }; }
+  var code = resp.getResponseCode(), text = resp.getContentText(), data;
+  try { data = JSON.parse(text); } catch (e) { data = null; }
+  if (code < 200 || code >= 300 || !data || data.ok !== true) {
+    return { ok: false, error: (data && data.error) ? data.error : ('HTTP ' + code + ': ' + text.slice(0, 300)) };
+  }
+  return { ok: true, url: data.presentationUrl, shareNote: data.shareNote || '' };
+}
+
 // ============================================================
 // 生成シートへの保存（upsert by 管理No.）
 // ============================================================
@@ -253,11 +280,15 @@ function saveAndGenerate(form) {
     return { ok: false, error: '管理No.="' + (form.caseId || '') + '" の DOC_URL が検索シートに見つかりません（QRを生成できません）。', savedRow: savedRow };
   }
 
-  // 4) GAS でスライド生成（毎回新規作成）。dims はブラウザが送る元画像寸法。
-  var dims = form._imageDims || {};
-  var gen = renderSlide(content, docUrl, {
-    logo: dims.logoUrl, frame1: dims.image1Url, frame2: dims.image2Url
-  });
+  // 4) スライド生成。USE_NODE=true なら Node（透視変換=傾き対応）、それ以外は GAS(SlidesApp)。
+  var useNode = String(getProp_('USE_NODE', '')).toLowerCase() === 'true';
+  var gen;
+  if (useNode) {
+    gen = callNodeRender_(content, docUrl);          // Node が QR生成・自己配信・共有フォルダ保存まで実施
+  } else {
+    var dims = form._imageDims || {};
+    gen = renderSlide(content, docUrl, { logo: dims.logoUrl, frame1: dims.image1Url, frame2: dims.image2Url });
+  }
   if (!gen.ok) return { ok: false, error: gen.error, savedRow: savedRow };
 
   // 5) 検索シートへ URL 書き戻し（管理No. == ID）。旧スライドはゴミ箱へ＝上書き。

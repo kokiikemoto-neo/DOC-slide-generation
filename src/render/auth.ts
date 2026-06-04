@@ -7,10 +7,11 @@ import { google } from "googleapis";
 import type { OAuth2Client } from "google-auth-library";
 import { getConfig, type AppConfig } from "../config.js";
 
-/** Slides の作成と、こちらがアップロードした画像ファイルの管理に必要な最小スコープ。 */
+/** Slides 作成 + 生成物を共有フォルダへ移動するための Drive アクセス。
+ *  共有フォルダはこのアプリ外で作成されるため drive.file では不足 → full drive を使う。 */
 export const SCOPES = [
   "https://www.googleapis.com/auth/presentations",
-  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/drive",
 ];
 
 export class AuthError extends Error {

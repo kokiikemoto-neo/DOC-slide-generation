@@ -138,7 +138,12 @@ async function handleRender(req: http.IncomingMessage, res: http.ServerResponse)
     publishImage: async (buffer, mime) => `${baseUrl}/img/${putImage(buffer, mime)}`,
   });
 
-  sendJson(res, 200, { ok: true, presentationUrl: result.presentationUrl, warnings });
+  sendJson(res, 200, {
+    ok: true,
+    presentationUrl: result.presentationUrl,
+    shareNote: result.shareNote ?? "",
+    warnings,
+  });
 }
 
 function headerStr(v: string | string[] | undefined): string {

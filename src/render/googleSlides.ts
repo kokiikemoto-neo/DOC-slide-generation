@@ -42,6 +42,7 @@ export interface RenderResult {
   presentationId: string;
   presentationUrl: string;
   uploadedFileIds: string[];
+  shareNote?: string;
 }
 
 interface Scale {
@@ -201,7 +202,30 @@ export async function renderToSlides(
     throw new Error(`Slides batchUpdate に失敗しました: ${(err as Error).message}`);
   }
 
-  // 4) 後始末（Drive 公開アップロード方式のときのみ）。
+  // 4) 生成スライドを共有フォルダへ移動（フォルダの共有メンバーが編集可になる）。
+  //    SHARE_FOLDER_ID（環境変数）が設定されている場合のみ。
+  let shareNote = "";
+  const folderId = normalizeFolderId(process.env.SHARE_FOLDER_ID ?? "");
+  if (folderId) {
+    try {
+      const drive = google.drive({ version: "v3", auth });
+      const meta = await drive.files.get({ fileId: presentationId, fields: "parents" });
+      const prevParents = (meta.data.parents ?? []).join(",");
+      await drive.files.update({
+        fileId: presentationId,
+        addParents: folderId,
+        removeParents: prevParents || undefined,
+        fields: "id,parents",
+      });
+      shareNote = "共有フォルダに保存（メンバーが編集可）";
+      log(shareNote);
+    } catch (err) {
+      shareNote = `共有フォルダ移動に失敗: ${(err as Error).message}`;
+      log(`警告: ${shareNote}`);
+    }
+  }
+
+  // 5) 後始末（Drive 公開アップロード方式のときのみ）。
   //    自己配信(publishImage)方式はメモリTTLで自動失効するので削除不要。
   if (!opts.publishImage && !opts.keepUploads && uploadedFileIds.length > 0) {
     log("一時アップロード画像を削除中…");
@@ -209,5 +233,15 @@ export async function renderToSlides(
   }
 
   const presentationUrl = `https://docs.google.com/presentation/d/${presentationId}/edit`;
-  return { presentationId, presentationUrl, uploadedFileIds };
+  return { presentationId, presentationUrl, uploadedFileIds, shareNote };
+}
+
+/** フォルダURLを貼られても ID を取り出す。 */
+function normalizeFolderId(raw: string): string {
+  if (!raw) return "";
+  const s = raw.trim();
+  const m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1]!;
+  const m2 = s.split("?")[0]!.match(/[a-zA-Z0-9_-]{20,}/);
+  return m2 ? m2[0] : s;
 }
