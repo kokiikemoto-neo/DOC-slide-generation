@@ -134,13 +134,14 @@ async function main(): Promise<void> {
     layers.push({ input: resized, top: Math.round(fit.y * SCALE), left: Math.round(fit.x * SCALE) });
   }
 
-  // text
-  for (const tid of ["tagline", "body1", "body2"]) {
-    const e = el(tid);
-    const r = region(spec, tid);
-    if (!e || !r) continue;
+  // text（role==="text" の全 region: tagline/head1/body1/head2/body2 …）
+  for (const r of spec.regions) {
+    if (r.role !== "text") continue;
+    const e = el(r.id);
+    if (!e) continue;
     const font = fontFor(spec, r);
-    const png = await renderTextPng(e.value ?? "", r.rect, font, e.fontSizePt ?? font.sizePt, tid === "tagline");
+    const vmid = r.style !== "body"; // body は上揃え、それ以外は中央
+    const png = await renderTextPng(e.value ?? "", r.rect, font, e.fontSizePt ?? font.sizePt, vmid);
     layers.push({ input: png, top: Math.round(r.rect.y * SCALE), left: Math.round(r.rect.x * SCALE) });
   }
 

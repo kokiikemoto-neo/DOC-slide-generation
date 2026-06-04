@@ -155,20 +155,21 @@ export async function renderToSlides(
     ops.push({ kind: "image", objectId: `${imgId}_img`, url: up.url, rect: fitted });
   }
 
-  // 2d) テキスト（tagline/body1/body2）
-  for (const textId of ["tagline", "body1", "body2"]) {
-    const el = get(textId);
-    const region = regionById(spec, textId);
-    if (!el || !region) continue;
+  // 2d) テキスト（role==="text" の全 region: tagline/head1/body1/head2/body2 …）
+  //     本文(style==="body")は上揃え、それ以外(tagline/見出し)は中央揃え。
+  for (const region of spec.regions) {
+    if (region.role !== "text") continue;
+    const el = get(region.id);
+    if (!el) continue;
     const font = fontFor(spec, region);
     ops.push({
       kind: "text",
-      objectId: `${textId}_box`,
+      objectId: `${region.id}_box`,
       rect: scaleRect(region.rect, s),
       text: el.value ?? "",
       font,
       sizePt: el.fontSizePt ?? font.sizePt,
-      valign: textId === "tagline" ? "MIDDLE" : "TOP",
+      valign: region.style === "body" ? "TOP" : "MIDDLE",
     });
   }
 

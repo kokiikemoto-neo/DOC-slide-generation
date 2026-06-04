@@ -24,7 +24,9 @@ describe("composeComingSoon", () => {
     const { plan } = composeComingSoon(spec, baseContent, "stylespec-coming-soon-v1.json");
     expect(plan.slides).toHaveLength(1);
     const ids = plan.slides[0]!.elements.map((e) => e.region).sort();
-    expect(ids).toEqual(["body1", "body2", "frame1", "frame2", "logo", "qr", "tagline"]);
+    expect(ids).toEqual([
+      "body1", "body2", "frame1", "frame2", "head1", "head2", "logo", "qr", "tagline",
+    ]);
   });
 
   it("frame1/frame2 は fit=perspective で元画像参照を保持(IO非依存)", () => {

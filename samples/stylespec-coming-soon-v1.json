@@ -23,6 +23,7 @@
   "typography": {
     "header":  { "family": "Noto Sans JP", "fontCandidates": ["Noto Sans JP","Zen Kaku Gothic New","Sans-serif"], "weightHint": "bold",    "sizePt": 18, "color": "#1E1D56", "align": "center" },
     "tagline": { "family": "Noto Sans JP", "weightHint": "bold",    "sizePt": 20, "color": "#1E1D56", "align": "center" },
+    "head":    { "family": "Noto Sans JP", "weightHint": "bold",    "sizePt": 16, "color": "#1E1D56", "align": "left" },
     "body":    { "family": "Noto Sans JP", "weightHint": "regular", "sizePt": 14, "color": "#1E1D56", "align": "left" }
   },
   "regions": [
@@ -44,10 +45,20 @@
       "quad": { "tl": [48,129], "tr": [354,129], "br": [354,323], "bl": [48,323] },
       "note": "左上の傾いたカード(①の図). perspectiveのためquadへ透視変換した画像を事前生成して重ねる。quadは実装段でフレーム内側白領域から再計測して精緻化すること(現値は近似)。" },
 
+    { "id": "head1",    "role": "text",  "editable": true,
+      "rect": { "x": 422, "y": 147, "w": 496, "h": 28 },
+      "style": "head",
+      "note": "①見出しタイトル。背景の丸数字①の右隣に「①[タイトル]」となるよう配置。" },
+
     { "id": "body1",    "role": "text",  "editable": true,
       "rect": { "x": 390, "y": 185, "w": 528, "h": 123 },
       "style": "body",
       "note": "①の本文記入欄。" },
+
+    { "id": "head2",    "role": "text",  "editable": true,
+      "rect": { "x": 69,  "y": 329, "w": 458, "h": 28 },
+      "style": "head",
+      "note": "②見出しタイトル。背景の丸数字②の右隣に配置。" },
 
     { "id": "body2",    "role": "text",  "editable": true,
       "rect": { "x": 37,  "y": 367, "w": 490, "h": 126 },
@@ -66,5 +77,5 @@
       "rect": { "x": 37, "y": 332, "w": 490, "h": 24 },
       "note": "②見出し(丸数字+区切り線)。固定背景に焼き込み。" }
   ],
-  "editableSlots": ["logo", "tagline", "qr", "frame1", "body1", "body2", "frame2"]
+  "editableSlots": ["logo", "tagline", "qr", "frame1", "head1", "body1", "head2", "body2", "frame2"]
 }

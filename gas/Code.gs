@@ -50,8 +50,10 @@ function buildContentFromRow_(row) {
     tagline: String(row.tagline   || row.name || ''),
     qr:      String(row.qrUrl     || ''),
     frame1:  String(row.image1Url || ''),
+    head1:   String(row.head1     || ''),
     body1:   String(row.body1     || ''),
     frame2:  String(row.image2Url || ''),
+    head2:   String(row.head2     || ''),
     body2:   String(row.body2     || '')
   };
 }

@@ -19,7 +19,7 @@ describe("loadStyleSpec", () => {
     expect(spec.meta.templateId).toBe("coming-soon-v1");
     expect(spec.meta.pageSize).toEqual({ w: 960, h: 540 });
     expect(spec.background?.asset).toBe("assets/background.png");
-    expect(spec.editableSlots).toHaveLength(7);
+    expect(spec.editableSlots).toHaveLength(9); // 7スロット + head1/head2
   });
 
   it("perspective フレームに quad が定義されている", () => {

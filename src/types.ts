@@ -79,8 +79,10 @@ export interface ComingSoonContent {
   tagline: string; // テキスト
   qr: string; // 画像 URL or ローカルパス
   frame1: string; // 画像 URL or ローカルパス（透視変換対象）
+  head1?: string; // ①見出しタイトル（任意）
   body1: string; // テキスト
   frame2: string; // 画像 URL or ローカルパス（透視変換対象）
+  head2?: string; // ②見出しタイトル（任意）
   body2: string; // テキスト
 }
 

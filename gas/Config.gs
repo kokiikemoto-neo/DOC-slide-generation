@@ -1,36 +1,41 @@
 /**
  * 設定: 列名マップ・区切り文字・Script Properties 読み取り。
- * 実シートに合わせて COLUMN_MAP を編集してください（既定は integration-gas-node.md §2 の例）。
+ * 実シートに合わせて COLUMN_MAP を編集してください（既定は「事例生成シート」のヘッダー）。
  * 機密（NODE_RENDER_URL / RENDER_API_KEY）はコードに書かず Script Properties から読みます。
  */
 
-/** 論理キー → スプレッドシートのヘッダー名。実シートのヘッダーに合わせて調整する。 */
+/**
+ * 論理キー → スプレッドシートのヘッダー名。
+ * 既定は「事例生成シート」(1行=1事例) のヘッダーに対応。実シートに合わせて調整する。
+ * 各列のスライド対応: logoUrl→logo / tagline→tagline / qrUrl→qr /
+ *   image1Url→frame1 / head1→①見出し / body1→①本文 /
+ *   image2Url→frame2 / head2→②見出し / body2→②本文。caseId/name は識別・代替用。
+ */
 var COLUMN_MAP = {
-  companyId: '企業ID',
+  caseId:    '管理No.',
   name:      '企業名',
-  hireCount: '採用人数',
-  soldNeeds: '売れたニーズ',
-  industry:  '業種',
-  logoUrl:   'ロゴURL',
-  qrUrl:     'QR URL',
-  image1Url: '画像1 URL',
-  image2Url: '画像2 URL',
-  body1:     '本文1',
-  body2:     '本文2',
-  tagline:   'ひとこと'
+  logoUrl:   '企業ロゴ',
+  tagline:   '活用背景一言',
+  qrUrl:     'QRコード添付',
+  image1Url: '画像①',
+  head1:     '画像①のタイトル',
+  body1:     '画像①の詳細',
+  image2Url: '画像②',
+  head2:     '画像②のタイトル',
+  body2:     '画像②の詳細'
 };
 
-/** 数値として解釈する論理キー（range フィルタ対象）。 */
-var NUMERIC_KEYS = ['hireCount'];
+/** 数値として解釈する論理キー（range フィルタ対象）。生成シートには無いので空。 */
+var NUMERIC_KEYS = [];
 
-/** 複数値セルとして split する論理キー（in フィルタでタグ判定）。 */
-var MULTI_VALUE_KEYS = ['soldNeeds', 'industry'];
+/** 複数値セルとして split する論理キー（in フィルタでタグ判定）。生成シートには無いので空。 */
+var MULTI_VALUE_KEYS = [];
 
 /** 複数値セルの区切り: カンマ既定。全角カンマ・読点・セミコロン(半/全角)・改行もフォールバック許容。 */
 var MULTI_VALUE_SPLIT = /[,、，;；\n\r]+/;
 
-/** UI のファセット（複数選択候補）を出す論理キー。 */
-var FACET_KEYS = ['soldNeeds', 'industry'];
+/** UI のファセット（複数選択候補）を出す論理キー。生成シートには無いので空。 */
+var FACET_KEYS = [];
 
 function _props() {
   return PropertiesService.getScriptProperties();
@@ -61,10 +66,10 @@ function getSpreadsheet_() {
   throw new Error('SPREADSHEET_ID が未設定です。スクリプトプロパティに対象スプレッドシートのIDを設定してください。');
 }
 
-/** companies シート。SHEET_NAME プロパティ（既定 "companies"）。 */
+/** 対象シート。SHEET_NAME プロパティ（既定 "事例生成シート"）。 */
 function getSheet_() {
   var ss = getSpreadsheet_();
-  var name = getProp_('SHEET_NAME', 'companies');
+  var name = getProp_('SHEET_NAME', '事例生成シート');
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     var names = ss.getSheets().map(function (s) { return s.getName(); });
@@ -83,7 +88,7 @@ function inspectHeaders() {
   var allNames = ss.getSheets().map(function (s) { return s.getName(); });
   Logger.log('スプレッドシート内のシート一覧: %s', JSON.stringify(allNames));
 
-  var wanted = getProp_('SHEET_NAME', 'companies');
+  var wanted = getProp_('SHEET_NAME', '事例生成シート');
   var sheet = ss.getSheetByName(wanted);
   if (!sheet) {
     sheet = ss.getSheets()[0];

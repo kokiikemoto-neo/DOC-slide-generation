@@ -11,8 +11,10 @@
     "tagline": { "type": "string" },
     "qr": { "type": "string", "minLength": 1 },
     "frame1": { "type": "string", "minLength": 1 },
+    "head1": { "type": "string", "description": "①見出しタイトル(任意)" },
     "body1": { "type": "string" },
     "frame2": { "type": "string", "minLength": 1 },
+    "head2": { "type": "string", "description": "②見出しタイトル(任意)" },
     "body2": { "type": "string" }
   }
 }
