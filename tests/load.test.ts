@@ -11,30 +11,32 @@ import type { ComingSoonContent } from "../src/types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const FIXED_STYLESPEC = path.join(ROOT, "samples", "stylespec-coming-soon-v1.json");
+const FIXED_STYLESPEC = path.join(ROOT, "samples", "stylespec-coming-soon.json");
 
 describe("loadStyleSpec", () => {
-  it("固定 coming-soon-v1 StyleSpec がスキーマ検証を通る", () => {
+  it("Figma 実測 StyleSpec(新構造) がスキーマ検証を通る", () => {
     const spec = loadStyleSpec(FIXED_STYLESPEC);
-    expect(spec.meta.templateId).toBe("coming-soon-v1");
-    expect(spec.meta.pageSize).toEqual({ w: 960, h: 540 });
-    expect(spec.background?.asset).toBe("assets/background.png");
-    expect(spec.editableSlots).toHaveLength(9); // 7スロット + head1/head2
+    expect(spec.version).toBe("coming-soon-v1");
+    expect(spec.pageSize).toEqual({ w: 960, h: 540 });
+    expect(spec.background).toBe("assets/background.png");
+    expect(spec.editableSlots).toHaveLength(9);
   });
 
-  it("perspective フレームに quad が定義されている", () => {
+  it("frame1/frame2 は quad 型（点は {x,y}）", () => {
     const spec = loadStyleSpec(FIXED_STYLESPEC);
-    const frames = spec.regions.filter((r) => r.fit === "perspective");
-    expect(frames.map((f) => f.id).sort()).toEqual(["frame1", "frame2"]);
-    for (const f of frames) {
-      expect(f.quad).toBeDefined();
-      expect(f.quad!.tl).toHaveLength(2);
+    for (const key of ["frame1", "frame2"]) {
+      const r = spec.regions[key]!;
+      expect(r.type).toBe("quad");
+      if (r.type === "quad") {
+        expect(typeof r.quad.tl.x).toBe("number");
+        expect(typeof r.quad.tl.y).toBe("number");
+      }
     }
   });
 
   it("不正な StyleSpec は SchemaValidationError を投げる", () => {
     expect(() =>
-      validateAgainst({ meta: {} }, "stylespec.schema.json", "StyleSpec", "(test)")
+      validateAgainst({ version: "x" }, "stylespec.schema.json", "StyleSpec", "(test)")
     ).toThrow(SchemaValidationError);
   });
 });

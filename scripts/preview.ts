@@ -19,11 +19,11 @@ function arg(name: string, def?: string): string | undefined {
 }
 
 function region(spec: StyleSpec, id: string): Region | undefined {
-  return spec.regions.find((r) => r.id === id);
+  return spec.regions[id];
 }
 function fontFor(spec: StyleSpec, r: Region): FontStyle {
-  const key = r.style ?? r.role;
-  return spec.typography[key] ?? spec.typography["body"]!;
+  const key = r.type === "rect" ? r.style : undefined;
+  return (key && spec.typography[key]) || spec.typography["body"]!;
 }
 
 /** fit.ts と同系の em 幅見積りで実際に行へ折り返す。 */
@@ -83,7 +83,7 @@ async function renderTextPng(
 }
 
 async function main(): Promise<void> {
-  const stylePath = arg("style", path.join(ROOT, "samples", "stylespec-coming-soon-v1.json"))!;
+  const stylePath = arg("style", path.join(ROOT, "samples", "stylespec-coming-soon.json"))!;
   const inputPath = arg("input", path.join(ROOT, "samples", "content.example.json"))!;
   const spec = loadStyleSpec(stylePath);
   const content = loadComingSoonContent(inputPath);
@@ -93,11 +93,11 @@ async function main(): Promise<void> {
   const workDir = path.join(ROOT, "out");
   fs.mkdirSync(workDir, { recursive: true });
 
-  const pageWpx = Math.round(spec.meta.pageSize.w * SCALE);
-  const pageHpx = Math.round(spec.meta.pageSize.h * SCALE);
+  const pageWpx = Math.round(spec.pageSize.w * SCALE);
+  const pageHpx = Math.round(spec.pageSize.h * SCALE);
 
   // 背景
-  let canvas = sharp(path.resolve(ROOT, spec.background!.asset)).resize(pageWpx, pageHpx);
+  const canvas = sharp(path.resolve(ROOT, spec.background!)).resize(pageWpx, pageHpx);
   const layers: sharp.OverlayOptions[] = [];
   const el = (id: string) => plan.slides[0]!.elements.find((e) => e.region === id);
 
@@ -105,15 +105,15 @@ async function main(): Promise<void> {
   for (const fid of ["frame1", "frame2"]) {
     const e = el(fid);
     const r = region(spec, fid);
-    if (!e?.value || !r?.quad) continue;
+    if (!e?.value || !r || r.type !== "quad") continue;
     const src = path.resolve(ROOT, e.value);
     const warped = path.join(workDir, `preview-${fid}.png`);
     await warpToQuad({
       inputPath: src,
       outputPath: warped,
       quad: r.quad,
-      pageW: spec.meta.pageSize.w,
-      pageH: spec.meta.pageSize.h,
+      pageW: spec.pageSize.w,
+      pageH: spec.pageSize.h,
       scale: SCALE,
     });
     layers.push({ input: warped, top: 0, left: 0 });
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
   for (const iid of ["logo", "qr"]) {
     const e = el(iid);
     const r = region(spec, iid);
-    if (!e?.value || !r) continue;
+    if (!e?.value || !r || r.type !== "rect") continue;
     const buf = fs.readFileSync(path.resolve(ROOT, e.value));
     const meta = await sharp(buf).metadata();
     const fit = containRect(r.rect, meta.width ?? 1, meta.height ?? 1);
@@ -134,10 +134,10 @@ async function main(): Promise<void> {
     layers.push({ input: resized, top: Math.round(fit.y * SCALE), left: Math.round(fit.x * SCALE) });
   }
 
-  // text（role==="text" の全 region: tagline/head1/body1/head2/body2 …）
-  for (const r of spec.regions) {
-    if (r.role !== "text") continue;
-    const e = el(r.id);
+  // text（role==="text" の全 region: tagline/heading1/body1/heading2/body2 …）
+  for (const [slot, r] of Object.entries(spec.regions)) {
+    if (r.type !== "rect" || r.role !== "text") continue;
+    const e = el(slot);
     if (!e) continue;
     const font = fontFor(spec, r);
     const vmid = r.style !== "body"; // body は上揃え、それ以外は中央

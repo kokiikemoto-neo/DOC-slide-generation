@@ -24,7 +24,7 @@ loadEnv();
 
 const PORT = Number(process.env.PORT ?? 8080);
 const SUPPORTED_TEMPLATE = "coming-soon-v1";
-const STYLE_PATH = path.join(ROOT, "samples", "stylespec-coming-soon-v1.json");
+const STYLE_PATH = path.join(ROOT, "samples", "stylespec-coming-soon.json");
 const MAX_BODY_BYTES = 25_000_000; // 25MB（アップロード画像を base64(data URL) で受けるため）
 
 // 固定 StyleSpec は起動時に1回ロードして検証（不正なら起動時に落とす）。
@@ -123,7 +123,7 @@ async function handleRender(req: http.IncomingMessage, res: http.ServerResponse)
   );
 
   // ここから先は CLI と同一のロジックを流用（生成本体は変更なし）
-  const { plan, warnings } = composeComingSoon(fixedSpec, content, "stylespec-coming-soon-v1.json");
+  const { plan, warnings } = composeComingSoon(fixedSpec, content, "stylespec-coming-soon.json");
   warnings.forEach((w) => console.warn(`⚠ ${w}`));
 
   // Slides が画像を取得するための公開URLは「このサーバ自身」を使う（Drive 公開不要）。

@@ -4,11 +4,11 @@
     "logo": "samples/assets/logo.png",
     "tagline": "現場の暗黙知を、誰でも引き出せる形に。",
     "qr": "samples/assets/qr.png",
-    "frame1": "samples/assets/shot1.png",
-    "head1": "導入前の課題",
+    "heading1": "導入前の課題",
     "body1": "・ベテランの判断基準を構造化\n・新人の立ち上がりを短縮",
-    "frame2": "samples/assets/shot2.png",
-    "head2": "導入後の成果",
-    "body2": "・導入3ヶ月で問い合わせ対応時間が40%減"
+    "frame1": "samples/assets/shot1.png",
+    "heading2": "導入後の成果",
+    "body2": "・導入3ヶ月で問い合わせ対応時間が40%減",
+    "frame2": "samples/assets/shot2.png"
   }
 }

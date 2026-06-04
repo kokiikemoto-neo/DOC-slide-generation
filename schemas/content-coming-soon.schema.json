@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "content-coming-soon.schema.json",
   "title": "ComingSoonContent",
-  "description": "coming-soon-v1 固定テンプレの7スロット入力。値は公開URL or ローカルパス(画像) / 文字列(テキスト)。",
+  "description": "coming-soon 固定テンプレの9スロット入力。値は公開URL/ローカルパス/dataURL(画像) または 文字列(テキスト)。",
   "type": "object",
   "required": ["logo", "tagline", "qr", "frame1", "body1", "frame2", "body2"],
   "additionalProperties": false,
@@ -10,11 +10,13 @@
     "logo": { "type": "string", "minLength": 1 },
     "tagline": { "type": "string" },
     "qr": { "type": "string", "minLength": 1 },
-    "frame1": { "type": "string", "minLength": 1 },
-    "head1": { "type": "string", "description": "①見出しタイトル(任意)" },
+    "heading1": { "type": "string", "description": "①見出し(可変)" },
     "body1": { "type": "string" },
+    "frame1": { "type": "string", "minLength": 1 },
+    "heading2": { "type": "string", "description": "②見出し(可変)" },
+    "body2": { "type": "string" },
     "frame2": { "type": "string", "minLength": 1 },
-    "head2": { "type": "string", "description": "②見出しタイトル(任意)" },
-    "body2": { "type": "string" }
+    "head1": { "type": "string", "description": "heading1 の旧名エイリアス" },
+    "head2": { "type": "string", "description": "heading2 の旧名エイリアス" }
   }
 }

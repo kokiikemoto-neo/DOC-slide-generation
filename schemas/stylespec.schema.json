@@ -3,32 +3,15 @@
   "$id": "stylespec.schema.json",
   "title": "StyleSpec",
   "type": "object",
-  "required": ["meta", "palette", "typography", "regions"],
+  "required": ["version", "pageSize", "palette", "typography", "editableSlots", "regions"],
   "properties": {
-    "meta": {
+    "version": { "type": "string" },
+    "pageSize": {
       "type": "object",
-      "required": ["aspectRatio", "pageSize"],
-      "properties": {
-        "templateId": { "type": "string" },
-        "sourceImage": { "type": "string" },
-        "aspectRatio": { "enum": ["16:9", "4:3"] },
-        "pageSize": {
-          "type": "object",
-          "required": ["w", "h"],
-          "properties": { "w": { "type": "number" }, "h": { "type": "number" } }
-        },
-        "note": { "type": "string" }
-      }
+      "required": ["w", "h"],
+      "properties": { "w": { "type": "number" }, "h": { "type": "number" } }
     },
-    "background": {
-      "type": "object",
-      "required": ["type", "asset"],
-      "properties": {
-        "type": { "const": "image" },
-        "asset": { "type": "string" },
-        "note": { "type": "string" }
-      }
-    },
+    "background": { "type": "string" },
     "palette": {
       "type": "object",
       "additionalProperties": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
@@ -48,47 +31,64 @@
         }
       }
     },
+    "editableSlots": { "type": "array", "items": { "type": "string" } },
     "regions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "role", "rect"],
-        "properties": {
-          "id": { "type": "string" },
-          "role": { "enum": ["title", "body", "image", "caption", "decoration", "text"] },
-          "rect": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {
             "type": "object",
-            "required": ["x", "y", "w", "h"],
+            "required": ["type", "role", "rect"],
+            "additionalProperties": false,
             "properties": {
-              "x": { "type": "number" }, "y": { "type": "number" },
-              "w": { "type": "number" }, "h": { "type": "number" }
+              "type": { "const": "rect" },
+              "role": { "enum": ["image", "text"] },
+              "fit": { "enum": ["contain", "cover"] },
+              "style": { "type": "string" },
+              "note": { "type": "string" },
+              "rect": {
+                "type": "object",
+                "required": ["x", "y", "w", "h"],
+                "properties": {
+                  "x": { "type": "number" }, "y": { "type": "number" },
+                  "w": { "type": "number" }, "h": { "type": "number" }
+                }
+              }
             }
           },
-          "fit": { "enum": ["cover", "contain", "perspective"] },
-          "fill": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
-          "editable": { "type": "boolean" },
-          "style": { "type": "string" },
-          "note": { "type": "string" },
-          "quad": {
+          {
             "type": "object",
-            "required": ["tl", "tr", "br", "bl"],
+            "required": ["type", "role", "fit", "quad"],
+            "additionalProperties": false,
             "properties": {
-              "tl": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
-              "tr": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
-              "br": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
-              "bl": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+              "type": { "const": "quad" },
+              "role": { "const": "image" },
+              "fit": { "const": "perspective" },
+              "note": { "type": "string" },
+              "quad": {
+                "type": "object",
+                "required": ["tl", "tr", "br", "bl"],
+                "additionalProperties": false,
+                "properties": {
+                  "tl": { "$ref": "#/definitions/point" },
+                  "tr": { "$ref": "#/definitions/point" },
+                  "br": { "$ref": "#/definitions/point" },
+                  "bl": { "$ref": "#/definitions/point" }
+                }
+              }
             }
           }
-        }
+        ]
       }
     },
-    "editableSlots": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "confidence": {
+    "notes": { "type": "object", "additionalProperties": { "type": "string" } }
+  },
+  "definitions": {
+    "point": {
       "type": "object",
-      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+      "required": ["x", "y"],
+      "additionalProperties": false,
+      "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
     }
   }
 }

@@ -18,7 +18,7 @@ export async function renderQrToFile(text: string): Promise<string> {
     width: 600,
     margin: 1,
     errorCorrectionLevel: "M",
-    color: { dark: "#1E1D56", light: "#FFFFFF" },
+    color: { dark: "#3A3A5C", light: "#FFFFFF" },
   });
   return file;
 }

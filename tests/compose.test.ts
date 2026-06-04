@@ -7,7 +7,7 @@ import type { ComingSoonContent } from "../src/types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const spec = loadStyleSpec(path.join(ROOT, "samples", "stylespec-coming-soon-v1.json"));
+const spec = loadStyleSpec(path.join(ROOT, "samples", "stylespec-coming-soon.json"));
 
 const baseContent: ComingSoonContent = {
   logo: "https://example.com/logo.png",
@@ -20,12 +20,12 @@ const baseContent: ComingSoonContent = {
 };
 
 describe("composeComingSoon", () => {
-  it("7スロット全てが要素になり SlidePlan 検証を通る", () => {
-    const { plan } = composeComingSoon(spec, baseContent, "stylespec-coming-soon-v1.json");
+  it("9スロット全てが要素になり SlidePlan 検証を通る", () => {
+    const { plan } = composeComingSoon(spec, baseContent, "stylespec-coming-soon.json");
     expect(plan.slides).toHaveLength(1);
     const ids = plan.slides[0]!.elements.map((e) => e.region).sort();
     expect(ids).toEqual([
-      "body1", "body2", "frame1", "frame2", "head1", "head2", "logo", "qr", "tagline",
+      "body1", "body2", "frame1", "frame2", "heading1", "heading2", "logo", "qr", "tagline",
     ]);
   });
 
@@ -43,10 +43,10 @@ describe("composeComingSoon", () => {
     expect(logo.fit).toBe("contain");
   });
 
-  it("短い本文は縮小されず base サイズ(14pt)", () => {
+  it("短い本文は縮小されず base サイズ(13pt)", () => {
     const { plan, warnings } = composeComingSoon(spec, baseContent);
     const body1 = plan.slides[0]!.elements.find((e) => e.region === "body1")!;
-    expect(body1.fontSizePt).toBe(14);
+    expect(body1.fontSizePt).toBe(13);
     expect(warnings).toHaveLength(0);
   });
 
@@ -67,7 +67,7 @@ describe("composeComingSoon", () => {
     };
     const { plan, warnings } = composeComingSoon(spec, midContent);
     const body2 = plan.slides[0]!.elements.find((e) => e.region === "body2")!;
-    expect(body2.fontSizePt).toBeLessThan(14);
+    expect(body2.fontSizePt).toBeLessThan(13);
     expect(plan.slides[0]!.overflow?.body2).toBeUndefined();
     expect(warnings.some((w) => w.includes("body2") && w.includes("縮小"))).toBe(true);
   });

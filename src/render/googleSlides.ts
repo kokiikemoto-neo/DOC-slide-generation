@@ -18,7 +18,7 @@ const FALLBACK_FONT: FontStyle = {
   family: "Noto Sans JP",
   weightHint: "regular",
   sizePt: 14,
-  color: "#1E1D56",
+  color: "#3A3A5C",
   align: "left",
 };
 
@@ -50,13 +50,13 @@ interface Scale {
   sy: number;
 }
 
-function regionById(spec: StyleSpec, id: string): Region | undefined {
-  return spec.regions.find((r) => r.id === id);
+function regionAt(spec: StyleSpec, id: string): Region | undefined {
+  return spec.regions[id];
 }
 
 function fontFor(spec: StyleSpec, region: Region): FontStyle {
-  const key = region.style ?? region.role;
-  return spec.typography[key] ?? spec.typography["body"] ?? FALLBACK_FONT;
+  const key = region.type === "rect" ? region.style : undefined;
+  return (key && spec.typography[key]) || spec.typography["body"] || FALLBACK_FONT;
 }
 
 function scaleRect(rect: Rect, s: Scale): Rect {
@@ -89,12 +89,12 @@ export async function renderToSlides(
   // 1) 空のプレゼンを作成し、実際のページサイズを取得
   log("プレゼンテーションを作成中…");
   const created = await slides.presentations.create({
-    requestBody: { title: opts.title ?? `SlideGen ${spec.meta.templateId ?? ""}`.trim() },
+    requestBody: { title: opts.title ?? `SlideGen ${spec.version}`.trim() },
   });
   const presentationId = created.data.presentationId!;
   const firstSlideId = created.data.slides?.[0]?.objectId ?? undefined;
   const actualPage = pageSizePt(created.data.pageSize ?? undefined);
-  const specPage = spec.meta.pageSize;
+  const specPage = spec.pageSize;
   const s: Scale = {
     sx: actualPage.w > 0 ? actualPage.w / specPage.w : 1,
     sy: actualPage.h > 0 ? actualPage.h / specPage.h : 1,
@@ -117,9 +117,9 @@ export async function renderToSlides(
   };
 
   // 2a) 背景（最背面・ページ全面）
-  if (spec.background?.asset) {
-    const bgPath = path.resolve(ROOT, spec.background.asset);
-    log(`背景画像を配信準備中: ${spec.background.asset}`);
+  if (spec.background) {
+    const bgPath = path.resolve(ROOT, spec.background);
+    log(`背景画像を配信準備中: ${spec.background}`);
     const bg = await resolveImageBytes(bgPath);
     const url = await publishImg(bg, "slidegen-background.png");
     ops.push({ kind: "image", objectId: "bg_img", url, rect: { x: 0, y: 0, w: actualPage.w, h: actualPage.h } });
@@ -134,8 +134,8 @@ export async function renderToSlides(
   // 2b) perspective フレーム
   for (const frameId of ["frame1", "frame2"]) {
     const el = get(frameId);
-    const region = regionById(spec, frameId);
-    if (!el?.value || !region?.quad) continue;
+    const region = regionAt(spec, frameId);
+    if (!el?.value || !region || region.type !== "quad") continue;
     log(`${frameId}: 透視変換中…`);
     const src = await resolveImageBytes(el.value);
     const srcPath = path.join(workDir, `${frameId}-src.${src.ext}`);
@@ -158,8 +158,8 @@ export async function renderToSlides(
   // 2c) contain 画像（logo/qr）
   for (const imgId of ["logo", "qr"]) {
     const el = get(imgId);
-    const region = regionById(spec, imgId);
-    if (!el?.value || !region) continue;
+    const region = regionAt(spec, imgId);
+    if (!el?.value || !region || region.type !== "rect") continue;
     log(`${imgId}: 画像を配置中…`);
     const img = await resolveImageBytes(el.value);
     const url = await publishImg(img, `slidegen-${imgId}.${img.ext}`);
@@ -169,14 +169,14 @@ export async function renderToSlides(
 
   // 2d) テキスト（role==="text" の全 region: tagline/head1/body1/head2/body2 …）
   //     本文(style==="body")は上揃え、それ以外(tagline/見出し)は中央揃え。
-  for (const region of spec.regions) {
-    if (region.role !== "text") continue;
-    const el = get(region.id);
+  for (const [slot, region] of Object.entries(spec.regions)) {
+    if (region.type !== "rect" || region.role !== "text") continue;
+    const el = get(slot);
     if (!el) continue;
     const font = fontFor(spec, region);
     ops.push({
       kind: "text",
-      objectId: `${region.id}_box`,
+      objectId: `${slot}_box`,
       rect: scaleRect(region.rect, s),
       text: el.value ?? "",
       font,

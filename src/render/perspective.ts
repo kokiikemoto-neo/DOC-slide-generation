@@ -31,8 +31,8 @@ export interface WarpOptions {
 }
 
 function quadToArg(q: Quad): string {
-  // tl tr br bl の順で "x,y x,y x,y x,y"
-  return [q.tl, q.tr, q.br, q.bl].map(([x, y]) => `${x},${y}`).join(" ");
+  // tl tr br bl の順で "x,y x,y x,y x,y"（点は {x,y}）
+  return [q.tl, q.tr, q.br, q.bl].map((p) => `${p.x},${p.y}`).join(" ");
 }
 
 /**

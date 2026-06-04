@@ -12,7 +12,7 @@ import { AuthError } from "./render/auth.js";
 import { PerspectiveError } from "./render/perspective.js";
 import { ImageResolveError } from "./render/drive.js";
 
-const DEFAULT_STYLE = path.join(ROOT, "samples", "stylespec-coming-soon-v1.json");
+const DEFAULT_STYLE = path.join(ROOT, "samples", "stylespec-coming-soon.json");
 
 interface ParsedArgs {
   command: string | undefined;

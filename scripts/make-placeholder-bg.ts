@@ -1,105 +1,101 @@
-// 暫定の固定下地 assets/background.png をプログラムで生成する。
-// 正式版は元テンプレ画像から文字を消した下地を用意すること(README の TODO 参照)。
-// ここでは StyleSpec の palette と regions から、発光フレーム枠・グラデ帯・番号丸・
-// 区切り線・ロゴ白カードを近似描画した SVG を sharp で PNG 化する。
+// 暫定の固定下地 assets/background.png を新 StyleSpec(coming-soon) の座標で生成する。
+// 正式版は Figma 書き出し（薄藤色）に差し替えること（BACKGROUND_FILE_ID or 直接置換）。
+// 発光フレーム枠・グラデ帯・丸数字①②・本文枠を近似描画して位置確認できるようにする。
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { ROOT } from "../src/config.js";
 import { loadStyleSpec } from "../src/load.js";
-import type { Quad, Rect, Region, StyleSpec } from "../src/types.js";
+import type { Quad, Rect, StyleSpec } from "../src/types.js";
 
-const SCALE = 2; // px per pt
-
-function region(spec: StyleSpec, id: string): Region | undefined {
-  return spec.regions.find((r) => r.id === id);
-}
+const SCALE = 2;
 
 function quadPoints(q: Quad): string {
-  return [q.tl, q.tr, q.br, q.bl].map(([x, y]) => `${x},${y}`).join(" ");
+  return [q.tl, q.tr, q.br, q.bl].map((p) => `${p.x},${p.y}`).join(" ");
 }
-
-function roundedRect(rect: Rect, fill: string, opts: { stroke?: string; sw?: number; rx?: number; opacity?: number } = {}): string {
-  const { stroke = "none", sw = 0, rx = 8, opacity = 1 } = opts;
-  return `<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" rx="${rx}" ry="${rx}" fill="${fill}" fill-opacity="${opacity}" stroke="${stroke}" stroke-width="${sw}"/>`;
+function roundedRect(r: Rect, fill: string, o: { stroke?: string; sw?: number; rx?: number; dash?: string } = {}): string {
+  const { stroke = "none", sw = 0, rx = 10, dash = "" } = o;
+  return `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="${rx}" ry="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
 }
 
 function buildSvg(spec: StyleSpec): string {
-  const { w: W, h: H } = spec.meta.pageSize;
+  const { w: W, h: H } = spec.pageSize;
   const p = spec.palette;
-  const parts: string[] = [];
-
-  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W * SCALE}" height="${H * SCALE}" viewBox="0 0 ${W} ${H}">`);
-
-  // defs: タグライン帯のグラデ + フレームのソフト発光
-  parts.push(`<defs>
+  const R = spec.regions;
+  const out: string[] = [];
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W * SCALE}" height="${H * SCALE}" viewBox="0 0 ${W} ${H}">`);
+  out.push(`<defs>
     <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="${p.gradFrom ?? "#C3CEFC"}"/>
-      <stop offset="100%" stop-color="${p.gradTo ?? "#E6CCFB"}"/>
+      <stop offset="0%" stop-color="${p.frameGlowB ?? "#8AA0FF"}" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="${p.frameGlowP ?? "#C9A9F5"}" stop-opacity="0.55"/>
     </linearGradient>
     <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="${p.frameGlow ?? "#8AA0FF"}" flood-opacity="0.9"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="${p.frameGlowB ?? "#8AA0FF"}" flood-opacity="0.8"/>
     </filter>
   </defs>`);
+  out.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${p.pageBg ?? "#EAE7FB"}"/>`);
 
-  // 背景
-  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="${p.background ?? "#EEEDFD"}"/>`);
+  const rectOf = (key: string): Rect | null => {
+    const r = R[key];
+    return r && r.type === "rect" ? r.rect : null;
+  };
 
   // ロゴ白カード
-  const logo = region(spec, "logo");
-  if (logo) parts.push(roundedRect(logo.rect, "#FFFFFF", { rx: 10, stroke: p.boxFill ?? "#DFDEFD", sw: 1 }));
+  const logo = rectOf("logo");
+  if (logo) out.push(roundedRect(logo, "#FFFFFF", { rx: 8, stroke: "#FFFFFF", sw: 1 }));
 
-  // タグライン グラデ帯
-  const tagline = region(spec, "tagline");
-  if (tagline) parts.push(roundedRect(tagline.rect, "url(#band)", { rx: 14 }));
+  // タグライン帯（グラデ）
+  const tagline = rectOf("tagline");
+  if (tagline) out.push(roundedRect(tagline, "url(#band)", { rx: 12 }));
 
-  // QR プレースホルダ枠
-  const qr = region(spec, "qr");
-  if (qr)
-    parts.push(
-      `<rect x="${qr.rect.x}" y="${qr.rect.y}" width="${qr.rect.w}" height="${qr.rect.h}" rx="8" ry="8" fill="#FFFFFF" stroke="${p.numberCircle ?? "#C3C3FF"}" stroke-width="1.5" stroke-dasharray="5 4"/>`
+  // QR 破線ボックス
+  const qr = rectOf("qr");
+  if (qr) out.push(roundedRect(qr, "#FFFFFF", { rx: 8, stroke: p.numberFill ?? "#B7A6F0", sw: 1.5, dash: "5 4" }));
+
+  // 本文枠（薄い発光ボックス）
+  for (const key of ["body1", "body2"]) {
+    const r = rectOf(key);
+    if (r) out.push(roundedRect(r, "#FFFFFF22", { rx: 10, stroke: p.frameGlowB ?? "#8AA0FF", sw: 1.5 }));
+  }
+
+  // 見出し帯＋丸数字①②
+  const headings: Array<{ key: string; label: string }> = [
+    { key: "heading1", label: "①" },
+    { key: "heading2", label: "②" },
+  ];
+  for (const { key, label } of headings) {
+    const r = rectOf(key);
+    if (!r) continue;
+    out.push(roundedRect(r, "url(#band)", { rx: r.h / 2 }));
+    const cy = r.y + r.h / 2;
+    const cx = r.x; // 左端に丸数字
+    const rad = r.h / 2 + 3;
+    out.push(
+      `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="${p.numberFill ?? "#B7A6F0"}"/>`,
+      `<text x="${cx}" y="${cy}" font-family="Noto Sans JP, sans-serif" font-size="${rad}" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">${label}</text>`
     );
+  }
 
-  // 発光フレーム(傾き): quad ポリゴンを描く
-  for (const id of ["frame1", "frame2"]) {
-    const f = region(spec, id);
-    if (f?.quad) {
-      parts.push(
-        `<polygon points="${quadPoints(f.quad)}" fill="${p.boxFill ?? "#DFDEFD"}" stroke="${p.frameGlow ?? "#8AA0FF"}" stroke-width="2.5" filter="url(#glow)"/>`
+  // 発光フレーム（傾き：quad ポリゴン）
+  for (const key of ["frame1", "frame2"]) {
+    const reg = R[key];
+    if (reg && reg.type === "quad") {
+      out.push(
+        `<polygon points="${quadPoints(reg.quad)}" fill="#FFFFFF" stroke="${p.frameGlowB ?? "#8AA0FF"}" stroke-width="2.5" filter="url(#glow)"/>`
       );
     }
   }
 
-  // 番号丸 + 区切り線
-  const numbers: Array<{ id: string; label: string }> = [
-    { id: "number1", label: "①" },
-    { id: "number2", label: "②" },
-  ];
-  for (const { id, label } of numbers) {
-    const n = region(spec, id);
-    if (!n) continue;
-    const cy = n.rect.y + n.rect.h / 2;
-    const cx = n.rect.x + n.rect.h / 2;
-    const r = n.rect.h / 2;
-    parts.push(
-      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${p.numberCircle ?? "#C3C3FF"}"/>`,
-      `<text x="${cx}" y="${cy}" font-family="Noto Sans JP, sans-serif" font-size="${r * 1.1}" fill="${p.ink ?? "#1E1D56"}" text-anchor="middle" dominant-baseline="central">${label}</text>`,
-      `<line x1="${cx + r + 6}" y1="${cy}" x2="${n.rect.x + n.rect.w}" y2="${cy}" stroke="${p.ink ?? "#1E1D56"}" stroke-width="1" stroke-opacity="0.4"/>`
-    );
-  }
-
-  parts.push(`</svg>`);
-  return parts.join("\n");
+  out.push(`</svg>`);
+  return out.join("\n");
 }
 
 async function main(): Promise<void> {
-  const styleArg = process.argv[2] ?? path.join(ROOT, "samples", "stylespec-coming-soon-v1.json");
+  const styleArg = process.argv[2] ?? path.join(ROOT, "samples", "stylespec-coming-soon.json");
   const spec = loadStyleSpec(styleArg);
-  const outPath = path.resolve(ROOT, spec.background?.asset ?? "assets/background.png");
+  const outPath = path.resolve(ROOT, spec.background ?? "assets/background.png");
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-
-  const svg = buildSvg(spec);
-  await sharp(Buffer.from(svg)).png().toFile(outPath);
+  await sharp(Buffer.from(buildSvg(spec))).png().toFile(outPath);
   // eslint-disable-next-line no-console
   console.log(`placeholder background written: ${outPath}`);
 }
