@@ -33,10 +33,18 @@ function isHttpUrl(s: string): boolean {
   return /^https?:\/\//i.test(s);
 }
 
-/** ローカルパス or URL から画像バイトと寸法を取得する。 */
+/** data URL か判定。 */
+function isDataUrl(s: string): boolean {
+  return /^data:[^;]+;base64,/.test(s);
+}
+
+/** ローカルパス / http(s) URL / data URL から画像バイトと寸法を取得する。 */
 export async function resolveImageBytes(src: string): Promise<ResolvedImage> {
   let buffer: Buffer;
-  if (isHttpUrl(src)) {
+  if (isDataUrl(src)) {
+    const comma = src.indexOf(",");
+    buffer = Buffer.from(src.slice(comma + 1), "base64");
+  } else if (isHttpUrl(src)) {
     let res: Response;
     try {
       res = await fetch(src);

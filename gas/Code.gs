@@ -256,28 +256,37 @@ function saveAndGenerate(form) {
   var searchRow = findSearchRowById_(form.caseId);
   if (!form.name && searchRow) form.name = searchRow.name;
   var docUrl = searchRow ? String(searchRow.docUrl || '') : '';
-  // 生成シートの「QRコード添付」列には QR の元になった DOC_URL を記録
-  form.qrUrl = docUrl;
 
-  // 1) 生成シートへ保存（upsert）
+  // 1) Node へ渡す content（画像は base64 dataURL/URL のまま）
+  var content = buildContentFromForm_(form);
+
+  // 2) 生成シートへ保存（upsert）。dataURL は巨大なのでセルにはファイル名/マーカーを書く。
+  var names = form._imageNames || {};
+  var sheetForm = {};
+  Object.keys(GEN_COLUMN_MAP).forEach(function (k) { sheetForm[k] = form[k]; });
+  ['logoUrl', 'image1Url', 'image2Url'].forEach(function (k) {
+    var v = String(sheetForm[k] || '');
+    if (v.indexOf('data:') === 0) sheetForm[k] = names[k] || '(アップロード画像)';
+  });
+  sheetForm.name = form.name;
+  sheetForm.qrUrl = docUrl; // QR の元になった DOC_URL を記録
   var savedRow;
   try {
-    savedRow = upsertGenRow_(form);
+    savedRow = upsertGenRow_(sheetForm);
   } catch (e) {
     return { ok: false, error: '生成シートへの保存に失敗しました: ' + ((e && e.message) || e) };
   }
 
-  // 2) QR の元 URL チェック
+  // 3) QR の元 URL チェック
   if (!docUrl) {
     return { ok: false, error: '管理No.="' + (form.caseId || '') + '" の DOC_URL が検索シートに見つかりません（QRを生成できません）。', savedRow: savedRow };
   }
 
-  // 3) Node でスライド生成（QR は docUrl から Node が生成）
-  var content = buildContentFromForm_(form);
+  // 4) Node でスライド生成（QR は docUrl から Node が生成）
   var gen = callNodeRender_(content, docUrl);
   if (!gen.ok) return { ok: false, error: gen.error, savedRow: savedRow };
 
-  // 4) 検索シートへ URL 書き戻し（管理No. == ID）
+  // 5) 検索シートへ URL 書き戻し（管理No. == ID）
   var wb = writebackSearchUrl_(form.caseId, gen.presentationUrl);
 
   return { ok: true, presentationUrl: gen.presentationUrl, savedRow: savedRow, writeback: wb, qrSource: docUrl };

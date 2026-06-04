@@ -155,7 +155,7 @@
       } else if (f.type === 'image') {
         input =
           '<input type="file" accept="image/*" id="file_' + f.key + '" onchange="onPickImage(\'' + f.key + '\', this)">' +
-          '<input type="text" id="g_' + f.key + '" placeholder="アップロード後URL（直接URL貼付も可）" style="margin-top:6px;">' +
+          '<input type="text" id="g_' + f.key + '" placeholder="（任意）画像URLを直接指定する場合はここに" style="margin-top:6px;">' +
           '<div class="muted" id="up_' + f.key + '"></div>' +
           '<img id="thumb_' + f.key + '" alt="" style="display:none;max-height:64px;margin-top:6px;border:1px solid var(--line);border-radius:6px;">';
       } else if (f.type === 'textarea') {
@@ -168,40 +168,57 @@
     document.getElementById('genForm').innerHTML = html;
   }
 
-  // 画像ファイル選択 → Drive アップロード → URL を該当フィールドに反映
-  var uploading = 0;
+  // 画像はブラウザ内で縮小して base64 で保持し、実行時に Node へ直接渡す（Drive 非経由）。
+  var imageData = {};   // key -> dataURL
+  var imageNames = {};  // key -> filename
+
+  // ファイルを最大 maxDim px に縮小して PNG dataURL 化（巨大画像の送信を防ぐ）。
+  function downscaleToDataUrl(file, maxDim, onOk, onErr) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var cw = Math.max(1, Math.round(img.width * scale));
+        var ch = Math.max(1, Math.round(img.height * scale));
+        var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+        try {
+          c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          onOk(c.toDataURL('image/png'));
+        } catch (e) { onErr((e && e.message) || '画像変換に失敗'); }
+      };
+      img.onerror = function () { onErr('画像を解釈できません'); };
+      img.src = reader.result;
+    };
+    reader.onerror = function () { onErr('ファイル読込に失敗'); };
+    reader.readAsDataURL(file);
+  }
+
   function onPickImage(key, inputEl) {
     var file = inputEl.files && inputEl.files[0];
     if (!file) return;
     var st = document.getElementById('up_' + key);
-    st.textContent = 'アップロード中… ' + file.name; st.className = 'muted';
-    uploading++;
-    var reader = new FileReader();
-    reader.onload = function () {
-      google.script.run
-        .withSuccessHandler(function (res) {
-          uploading--;
-          if (res && res.ok) {
-            document.getElementById('g_' + key).value = res.url;
-            st.textContent = 'アップロード完了'; st.className = 'ok';
-            var t = document.getElementById('thumb_' + key); t.src = res.url; t.style.display = 'inline-block';
-          } else {
-            st.textContent = '失敗: ' + esc((res && res.error) || '不明'); st.className = 'err';
-          }
-        })
-        .withFailureHandler(function (e) { uploading--; st.textContent = '失敗: ' + esc(e.message); st.className = 'err'; })
-        .uploadImageToDrive(reader.result, file.name);
-    };
-    reader.onerror = function () { uploading--; st.textContent = 'ファイル読み込み失敗'; st.className = 'err'; };
-    reader.readAsDataURL(file);
+    st.textContent = '読み込み中… ' + file.name; st.className = 'muted';
+    downscaleToDataUrl(file, 1600, function (dataUrl) {
+      imageData[key] = dataUrl; imageNames[key] = file.name;
+      var t = document.getElementById('thumb_' + key); t.src = dataUrl; t.style.display = 'inline-block';
+      st.textContent = '選択済み: ' + file.name; st.className = 'ok';
+    }, function (err) { st.textContent = '失敗: ' + esc(err); st.className = 'err'; });
   }
 
   function collectForm() {
     var form = {};
     genFields.forEach(function (f) {
-      var el = document.getElementById('g_' + f.key);
-      form[f.key] = el ? el.value : '';
+      if (f.type === 'image') {
+        var el = document.getElementById('g_' + f.key);
+        // アップロード画像(base64)を優先、無ければ手入力URL
+        form[f.key] = imageData[f.key] || (el ? el.value : '');
+      } else {
+        var e2 = document.getElementById('g_' + f.key);
+        form[f.key] = e2 ? e2.value : '';
+      }
     });
+    form._imageNames = imageNames;
     return form;
   }
 
@@ -211,7 +228,6 @@
   }
 
   function doGenerate() {
-    if (uploading > 0) { setText('genStatus', '画像アップロードの完了をお待ちください…', true); return; }
     var btn = document.getElementById('genBtn');
     btn.disabled = true;
     setText('genStatus', '保存＆生成中…（数十秒かかる場合があります）');
