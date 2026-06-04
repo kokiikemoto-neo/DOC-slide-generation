@@ -158,20 +158,36 @@ function shareSlide_(fileId) {
   var notes = [];
   var file;
   try { file = DriveApp.getFileById(fileId); } catch (e) { return '共有設定をスキップ（ファイル取得不可）'; }
+  var msg = function (e) { return (e && e.message) || e; };
 
   var mode = getProp_('SHARE_MODE', 'domain_edit');
-  try {
-    if (mode === 'domain_edit') file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.EDIT);
-    else if (mode === 'anyone_edit') file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
-    // 'none' は何もしない（作成者のみ）
-  } catch (e) {
-    notes.push('リンク共有設定に失敗（' + ((e && e.message) || e) + '）。組織ポリシーの可能性。SHARE_EDITORS で個別付与を検討。');
+  if (mode !== 'none') {
+    var linkAccess = (mode === 'anyone_edit') ? DriveApp.Access.ANYONE_WITH_LINK : DriveApp.Access.DOMAIN_WITH_LINK;
+    var ok = false;
+    // 1) リンク共有で編集付与 → 実際に EDIT が付いたか読み取って確認
+    try {
+      file.setSharing(linkAccess, DriveApp.Permission.EDIT);
+      ok = (String(file.getSharingPermission()) === 'EDIT');
+      if (!ok) notes.push('リンク共有が組織設定で「' + file.getSharingPermission() + '」に制限され編集付与不可');
+    } catch (e) {
+      notes.push('リンク共有失敗(' + msg(e) + ')');
+    }
+    // 2) ダメなら「ドメイン内で検索可＋編集」を試す（リンク共有制限の回避）
+    if (!ok && mode === 'domain_edit') {
+      try {
+        file.setSharing(DriveApp.Access.DOMAIN, DriveApp.Permission.EDIT);
+        if (String(file.getSharingPermission()) === 'EDIT') { ok = true; notes = []; }
+      } catch (e) { notes.push('ドメイン共有失敗(' + msg(e) + ')'); }
+    }
   }
 
+  // 3) 追加の編集者（メール/グループ）。リンク共有が制限されていてもここは通ることが多い。
   var editors = getProp_('SHARE_EDITORS', '');
   if (editors) {
     var list = editors.split(/[,\s]+/).filter(function (s) { return s; });
-    try { if (list.length) file.addEditors(list); } catch (e) { notes.push('編集者追加に失敗（' + ((e && e.message) || e) + '）'); }
+    try {
+      if (list.length) { file.addEditors(list); notes.push('編集者追加: ' + list.join(',')); }
+    } catch (e) { notes.push('編集者追加失敗(' + msg(e) + ')'); }
   }
   return notes.join(' / ');
 }
