@@ -140,10 +140,40 @@ function renderSlide(content, docUrl, dims) {
     });
 
     pres.saveAndClose();
-    return { ok: true, url: pres.getUrl() };
+    var shareNote = shareSlide_(pres.getId());
+    return { ok: true, url: pres.getUrl(), shareNote: shareNote };
   } catch (e) {
     return { ok: false, error: 'スライド生成に失敗: ' + ((e && e.message) || e) };
   }
+}
+
+/**
+ * 生成スライドの共有設定。既定は「社内ドメイン(リンクを知っていれば編集可)」。
+ * Script Property:
+ *  - SHARE_MODE: 'domain_edit'(既定) | 'anyone_edit' | 'none'
+ *  - SHARE_EDITORS: 追加で編集権限を付ける宛先（メール/グループ、カンマ区切り）
+ * 返り値: 失敗時の注記（成功時は ''）。
+ */
+function shareSlide_(fileId) {
+  var notes = [];
+  var file;
+  try { file = DriveApp.getFileById(fileId); } catch (e) { return '共有設定をスキップ（ファイル取得不可）'; }
+
+  var mode = getProp_('SHARE_MODE', 'domain_edit');
+  try {
+    if (mode === 'domain_edit') file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.EDIT);
+    else if (mode === 'anyone_edit') file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+    // 'none' は何もしない（作成者のみ）
+  } catch (e) {
+    notes.push('リンク共有設定に失敗（' + ((e && e.message) || e) + '）。組織ポリシーの可能性。SHARE_EDITORS で個別付与を検討。');
+  }
+
+  var editors = getProp_('SHARE_EDITORS', '');
+  if (editors) {
+    var list = editors.split(/[,\s]+/).filter(function (s) { return s; });
+    try { if (list.length) file.addEditors(list); } catch (e) { notes.push('編集者追加に失敗（' + ((e && e.message) || e) + '）'); }
+  }
+  return notes.join(' / ');
 }
 
 /** URL から Slides のファイルIDを抜き出してゴミ箱へ（上書き時の旧スライド掃除・best-effort）。 */

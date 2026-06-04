@@ -250,6 +250,7 @@
             '<a href="' + res.presentationUrl + '" target="_blank" rel="noopener">スライドを開く ↗</a>' +
             '<div class="muted" style="margin-top:6px;">保存: 生成シート ' + res.savedRow + ' 行目 / 書き戻し: ' +
             (wb.wrote ? '<span class="ok">' + esc(wb.note) + '</span>' : '<span class="err">' + esc(wb.note || '未実施') + '</span>') + '</div>' +
+            (res.shareNote ? '<div class="muted" style="margin-top:4px;">共有: <span class="err">' + esc(res.shareNote) + '</span></div>' : '<div class="muted" style="margin-top:4px;">共有: 社内（ドメイン）で編集可</div>') +
             (emb ? '<iframe src="' + emb + '"></iframe>' : '') +
             '</div>';
         } else {

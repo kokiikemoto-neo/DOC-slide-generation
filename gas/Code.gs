@@ -229,7 +229,7 @@ function saveAndGenerate(form) {
   // 5) 検索シートへ URL 書き戻し（管理No. == ID）。旧スライドはゴミ箱へ＝上書き。
   var wb = writebackSearchUrl_(form.caseId, gen.url, true);
 
-  return { ok: true, presentationUrl: gen.url, savedRow: savedRow, writeback: wb, qrSource: docUrl };
+  return { ok: true, presentationUrl: gen.url, savedRow: savedRow, writeback: wb, qrSource: docUrl, shareNote: gen.shareNote || '' };
 }
 
 /**
