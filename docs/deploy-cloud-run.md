@@ -16,11 +16,13 @@
 Cloud Run 上ではブラウザ同意フローを実行できません。次のいずれかを用意します。
 
 - **方式A（推奨・既存コードのまま）: リフレッシュトークン入りの `token.json` を使う**
-  1. ローカルで一度 `npm run slidegen -- render --input samples/content.example.json` を実行し、
-     OAuth 同意を完了して `token.json` を生成（`refresh_token` を含む）。
-     - `auth.ts` は `access_type: "offline"` で発行するため `token.json` に refresh_token が入り、
-       以後は自動更新されます（コード変更不要）。
-  2. この `token.json` と OAuth クライアントの ID/secret を **Secret Manager** に登録（後述）。
+  1. ローカルで `.env` を用意（`docs/api-setup.md` の手順で OAuth デスクトップクライアントの
+     ID/secret を取得して記入）。
+  2. `npm run login` を実行。ブラウザで同意すると `token.json` が生成されます
+     （`access_type:"offline"` のため `refresh_token` を含み、以後は自動更新）。
+     - ※ OAuth 同意画面が「テスト」状態だと refresh_token は約7日で失効します。
+       常用するなら同意画面を「本番（In production）」に切り替えるか、失効したら `npm run login` で再取得。
+  3. この `token.json` と OAuth クライアントの ID/secret を **Secret Manager** に登録（後述）。
 - 方式B: サービスアカウント方式に切り替える場合は別途 `auth.ts` の拡張が必要（本フェーズ範囲外）。
 
 ## 2. シークレットを Secret Manager に登録

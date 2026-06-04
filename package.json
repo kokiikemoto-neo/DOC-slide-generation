@@ -14,6 +14,7 @@
     "slidegen": "tsx src/index.ts",
     "serve": "tsx src/server.ts",
     "start": "tsx src/server.ts",
+    "login": "tsx scripts/authorize.ts",
     "make:bg": "tsx scripts/make-placeholder-bg.ts",
     "make:samples": "tsx scripts/make-sample-assets.ts",
     "preview": "tsx scripts/preview.ts"
