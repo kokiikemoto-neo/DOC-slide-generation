@@ -200,7 +200,12 @@ function shareSlide_(fileId) {
     } catch (e) { notes.push('編集者追加失敗(' + msg(e) + ')'); }
   }
 
-  if (movedToFolder && !notes.length) return '共有フォルダに保存（フォルダの編集メンバーが編集可）';
+  if (movedToFolder) {
+    var pname = '';
+    try { var it = file.getParents(); if (it.hasNext()) pname = it.next().getName(); } catch (e) {}
+    var base = '共有フォルダ「' + (pname || '?') + '」に保存（メンバーが編集可）';
+    return notes.length ? (base + ' / ' + notes.join(' / ')) : base;
+  }
   return notes.join(' / ');
 }
 
