@@ -1,8 +1,19 @@
 /**
  * Web アプリのエントリ: doGet(UI) / doPost(JSON API)。
- * 生成タブ: フォーム入力 → 生成シートへ保存(upsert) → Node /render → 検索シートへURL書き戻し。
+ * 生成タブ: フォーム入力 → 生成シートへ保存(upsert) → GAS でスライド生成 → 検索シートへURL上書き。
  * 検索タブ: 事例検索シートをフィルタ表示（Search.gs）。
  */
+
+/**
+ * 【最初に1回だけエディタで実行】SlidesApp/DriveApp の権限(presentations/drive)を承認させる。
+ * テスト用スライドを1枚作ってすぐゴミ箱へ捨てるだけ。承認画面が出たら許可してください。
+ */
+function grantPermissions() {
+  var p = SlidesApp.create('slidegen-permission-test');
+  DriveApp.getFileById(p.getId()).setTrashed(true);
+  Logger.log('OK: presentations / drive スコープを承認しました（テスト用スライドはゴミ箱へ）。');
+  return 'OK';
+}
 
 /** UI を返す。 */
 function doGet() {
