@@ -1,7 +1,7 @@
 /**
  * 設定: 2シート構成（事例生成シート／事例検索シート）の列名マップ・区切り文字・
  * Script Properties 読み取り。実シートに合わせて GEN_COLUMN_MAP / SEARCH_COLUMN_MAP を編集してください。
- * 機密（NODE_RENDER_URL / RENDER_API_KEY）はコードに書かず Script Properties から読みます。
+ * 設定値（シート名/QRエンドポイント等）はコードに書かず Script Properties から読みます。
  */
 
 // ============================================================

@@ -172,9 +172,10 @@
     document.getElementById('genForm').innerHTML = html;
   }
 
-  // 画像はブラウザ内で縮小して base64 で保持し、実行時に Node へ直接渡す（Drive 非経由）。
+  // 画像はブラウザ内で縮小して base64 で保持し、実行時に GAS へ直接渡す（Drive 非経由）。
   var imageData = {};   // key -> dataURL
   var imageNames = {};  // key -> filename
+  var imageDims = {};   // key -> {w,h}（contain 計算用）
 
   // ファイルを最大 maxDim px に縮小して PNG dataURL 化（巨大画像の送信を防ぐ）。
   function downscaleToDataUrl(file, maxDim, onOk, onErr) {
@@ -188,7 +189,7 @@
         var c = document.createElement('canvas'); c.width = cw; c.height = ch;
         try {
           c.getContext('2d').drawImage(img, 0, 0, cw, ch);
-          onOk(c.toDataURL('image/png'));
+          onOk(c.toDataURL('image/png'), cw, ch);
         } catch (e) { onErr((e && e.message) || '画像変換に失敗'); }
       };
       img.onerror = function () { onErr('画像を解釈できません'); };
@@ -203,8 +204,8 @@
     if (!file) return;
     var st = document.getElementById('up_' + key);
     st.textContent = '読み込み中… ' + file.name; st.className = 'muted';
-    downscaleToDataUrl(file, 1600, function (dataUrl) {
-      imageData[key] = dataUrl; imageNames[key] = file.name;
+    downscaleToDataUrl(file, 1600, function (dataUrl, w, h) {
+      imageData[key] = dataUrl; imageNames[key] = file.name; imageDims[key] = { w: w, h: h };
       var t = document.getElementById('thumb_' + key); t.src = dataUrl; t.style.display = 'inline-block';
       st.textContent = '選択済み: ' + file.name; st.className = 'ok';
     }, function (err) { st.textContent = '失敗: ' + esc(err); st.className = 'err'; });
@@ -223,6 +224,7 @@
       }
     });
     form._imageNames = imageNames;
+    form._imageDims = imageDims;
     return form;
   }
 

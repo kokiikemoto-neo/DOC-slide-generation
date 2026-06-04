@@ -124,54 +124,6 @@ function buildContentFromRow_(row) {
   return buildContentFromForm_(row || {});
 }
 
-/** content の画像スロット（必須・非空）を事前チェック。 */
-function missingImageSlots_(content) {
-  return ['logo', 'qr', 'frame1', 'frame2'].filter(function (k) {
-    return !content[k] || String(content[k]).trim() === '';
-  });
-}
-
-// ============================================================
-// Node /render 呼び出し（共通）
-// qrText を渡すと Node 側が QR を生成して content.qr に差し込む（DOC_URL → QR）。
-// ============================================================
-function callNodeRender_(content, qrText) {
-  // qrText がある場合 qr は Node が生成するのでチェック対象外
-  var slots = qrText ? ['logo', 'frame1', 'frame2'] : ['logo', 'qr', 'frame1', 'frame2'];
-  var missing = slots.filter(function (k) { return !content[k] || String(content[k]).trim() === ''; });
-  if (missing.length) {
-    return { ok: false, error: '画像が未設定です（' + missing.join(', ') + '）。' };
-  }
-  var url = getProp_('NODE_RENDER_URL', '');
-  var apiKey = getProp_('RENDER_API_KEY', '');
-  if (!url || !apiKey) {
-    return { ok: false, error: 'NODE_RENDER_URL / RENDER_API_KEY が未設定です（スクリプトプロパティを確認）。' };
-  }
-  var payload = { templateId: 'coming-soon-v1', content: content };
-  if (qrText) payload.qrText = String(qrText);
-  var resp;
-  try {
-    resp = UrlFetchApp.fetch(url, {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { 'X-Api-Key': apiKey },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true,
-      followRedirects: true
-    });
-  } catch (e) {
-    return { ok: false, error: 'Node への接続に失敗しました: ' + ((e && e.message) || e) };
-  }
-  var code = resp.getResponseCode();
-  var text = resp.getContentText();
-  var data;
-  try { data = JSON.parse(text); } catch (e) { data = null; }
-  if (code < 200 || code >= 300 || !data || data.ok !== true) {
-    return { ok: false, error: (data && data.error) ? data.error : ('HTTP ' + code + ': ' + text.slice(0, 300)) };
-  }
-  return { ok: true, presentationUrl: data.presentationUrl };
-}
-
 // ============================================================
 // 生成シートへの保存（upsert by 管理No.）
 // ============================================================
@@ -217,7 +169,7 @@ function upsertGenRow_(form) {
 // ============================================================
 // 検索シートへの URL 書き戻し（管理No. == ID で突合）
 // ============================================================
-function writebackSearchUrl_(caseId, url) {
+function writebackSearchUrl_(caseId, url, trashOld) {
   caseId = String(caseId || '').trim();
   if (!caseId) return { wrote: false, note: '管理No.が空のため書き戻しスキップ' };
 
@@ -239,8 +191,13 @@ function writebackSearchUrl_(caseId, url) {
   var ids = sheet.getRange(2, idCol0 + 1, n - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === caseId) {
-      sheet.getRange(i + 2, wbCol0 + 1).setValue(url);
-      return { wrote: true, note: '検索シート ' + (i + 2) + '行目「' + wbHeader + '」へ書き込み', row: i + 2 };
+      var cell = sheet.getRange(i + 2, wbCol0 + 1);
+      if (trashOld) {
+        var prev = String(cell.getValue() || '');
+        if (prev && prev !== url) trashSlideByUrl_(prev); // 旧スライドをゴミ箱へ（上書き）
+      }
+      cell.setValue(url);
+      return { wrote: true, note: '検索シート ' + (i + 2) + '行目「' + wbHeader + '」へ書き込み（上書き）', row: i + 2 };
     }
   }
   return { wrote: false, note: '検索シートに ID="' + caseId + '" の行が見つかりません' };
@@ -257,7 +214,7 @@ function saveAndGenerate(form) {
   if (!form.name && searchRow) form.name = searchRow.name;
   var docUrl = searchRow ? String(searchRow.docUrl || '') : '';
 
-  // 1) Node へ渡す content（画像は base64 dataURL/URL のまま）
+  // 1) レンダリング用 content（画像は base64 dataURL のまま）
   var content = buildContentFromForm_(form);
 
   // 2) 生成シートへ保存（upsert）。dataURL は巨大なのでセルにはファイル名/マーカーを書く。
@@ -282,29 +239,35 @@ function saveAndGenerate(form) {
     return { ok: false, error: '管理No.="' + (form.caseId || '') + '" の DOC_URL が検索シートに見つかりません（QRを生成できません）。', savedRow: savedRow };
   }
 
-  // 4) Node でスライド生成（QR は docUrl から Node が生成）
-  var gen = callNodeRender_(content, docUrl);
+  // 4) GAS でスライド生成（毎回新規作成）。dims はブラウザが送る元画像寸法。
+  var dims = form._imageDims || {};
+  var gen = renderSlide(content, docUrl, {
+    logo: dims.logoUrl, frame1: dims.image1Url, frame2: dims.image2Url
+  });
   if (!gen.ok) return { ok: false, error: gen.error, savedRow: savedRow };
 
-  // 5) 検索シートへ URL 書き戻し（管理No. == ID）
-  var wb = writebackSearchUrl_(form.caseId, gen.presentationUrl);
+  // 5) 検索シートへ URL 書き戻し（管理No. == ID）。旧スライドはゴミ箱へ＝上書き。
+  var wb = writebackSearchUrl_(form.caseId, gen.url, true);
 
-  return { ok: true, presentationUrl: gen.presentationUrl, savedRow: savedRow, writeback: wb, qrSource: docUrl };
+  return { ok: true, presentationUrl: gen.url, savedRow: savedRow, writeback: wb, qrSource: docUrl };
 }
 
 /**
- * 既存行 or content から直接生成（doPost / 一覧運用向け）。
- * payload: { content:{...} } | { row:{...GEN_COLUMN_MAP キー...} }, 任意 caseId。
+ * content から直接生成（doPost / プログラム利用向け）。
+ * payload: { content:{...画像はdataURL...}, caseId, dims }。
  */
 function generateSlide(payload) {
   payload = payload || {};
   var content = payload.content || (payload.row ? buildContentFromRow_(payload.row) : null);
-  if (!content) return { ok: false, error: 'row も content も渡されていません。' };
-
-  var gen = callNodeRender_(content);
-  if (!gen.ok) return gen;
+  if (!content) return { ok: false, error: 'content が渡されていません。' };
 
   var caseId = payload.caseId || (payload.row && payload.row.caseId) || '';
-  var wb = caseId ? writebackSearchUrl_(caseId, gen.presentationUrl) : { wrote: false, note: 'caseId 無し' };
-  return { ok: true, presentationUrl: gen.presentationUrl, writeback: wb };
+  var searchRow = findSearchRowById_(caseId);
+  var docUrl = searchRow ? String(searchRow.docUrl || '') : '';
+
+  var gen = renderSlide(content, docUrl, payload.dims || {});
+  if (!gen.ok) return gen;
+
+  var wb = caseId ? writebackSearchUrl_(caseId, gen.url, true) : { wrote: false, note: 'caseId 無し' };
+  return { ok: true, presentationUrl: gen.url, writeback: wb };
 }
