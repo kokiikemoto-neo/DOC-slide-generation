@@ -8,7 +8,7 @@ import type { OAuth2Client } from "google-auth-library";
 import { ROOT } from "../config.js";
 import type { StyleSpec, SlidePlan, Region, Rect, FontStyle } from "../types.js";
 import { authorize } from "./auth.js";
-import { resolveImageBytes, uploadPublicImage, deleteFiles } from "./drive.js";
+import { resolveImageBytes, uploadPublicImage, deleteFiles, type ResolvedImage } from "./drive.js";
 import { warpToQuad } from "./perspective.js";
 import { buildRequests, type DrawOp } from "./requests.js";
 import { containRect, EMU_PER_PT } from "./util.js";
@@ -31,6 +31,11 @@ export interface RenderOptions {
   warpScale?: number;
   /** 進捗ログ出力先（既定 console.log）。 */
   log?: (msg: string) => void;
+  /**
+   * 画像を「Slides が取得できる公開URL」にする手段。
+   * 指定時はこれを使う（サーバ自己配信など）。未指定時は Drive へ公開アップロード（既定）。
+   */
+  publishImage?: (buffer: Buffer, mime: string, name: string) => Promise<string>;
 }
 
 export interface RenderResult {
@@ -95,20 +100,28 @@ export async function renderToSlides(
   };
   log(`ページ ${actualPage.w}x${actualPage.h}pt (StyleSpec ${specPage.w}x${specPage.h}pt, scale ${s.sx.toFixed(3)})`);
 
-  // 2) 画像を準備（背景・frame透視変換・logo/qr）→ Drive 公開URL化
+  // 2) 画像を準備（背景・frame透視変換・logo/qr）→ 公開URL化
   const workDir = path.join(ROOT, "out");
   fs.mkdirSync(workDir, { recursive: true });
   const uploadedFileIds: string[] = [];
   const ops: DrawOp[] = [];
 
+  // 画像を「Slides が取得できるURL」にする。publishImage 指定時はそれ（サーバ自己配信）、
+  // 未指定時は Drive 公開アップロード（既定。組織が公開共有を許可する場合のみ動作）。
+  const publishImg = async (img: ResolvedImage, name: string): Promise<string> => {
+    if (opts.publishImage) return opts.publishImage(img.buffer, img.mime, name);
+    const up = await uploadPublicImage(auth, img, name);
+    uploadedFileIds.push(up.fileId);
+    return up.url;
+  };
+
   // 2a) 背景（最背面・ページ全面）
   if (spec.background?.asset) {
     const bgPath = path.resolve(ROOT, spec.background.asset);
-    log(`背景画像をアップロード中: ${spec.background.asset}`);
+    log(`背景画像を配信準備中: ${spec.background.asset}`);
     const bg = await resolveImageBytes(bgPath);
-    const up = await uploadPublicImage(auth, bg, "slidegen-background.png");
-    uploadedFileIds.push(up.fileId);
-    ops.push({ kind: "image", objectId: "bg_img", url: up.url, rect: { x: 0, y: 0, w: actualPage.w, h: actualPage.h } });
+    const url = await publishImg(bg, "slidegen-background.png");
+    ops.push({ kind: "image", objectId: "bg_img", url, rect: { x: 0, y: 0, w: actualPage.w, h: actualPage.h } });
   } else {
     log("警告: StyleSpec.background が無いため背景なしで描画します。");
   }
@@ -136,10 +149,9 @@ export async function renderToSlides(
       scale: warpScale,
     });
     const warped = await resolveImageBytes(warpedPath);
-    const up = await uploadPublicImage(auth, warped, `slidegen-${frameId}.png`);
-    uploadedFileIds.push(up.fileId);
+    const url = await publishImg(warped, `slidegen-${frameId}.png`);
     // ページ全面に回転0で配置（傾きは画像に焼き込み済み）
-    ops.push({ kind: "image", objectId: `${frameId}_img`, url: up.url, rect: { x: 0, y: 0, w: actualPage.w, h: actualPage.h } });
+    ops.push({ kind: "image", objectId: `${frameId}_img`, url, rect: { x: 0, y: 0, w: actualPage.w, h: actualPage.h } });
   }
 
   // 2c) contain 画像（logo/qr）
@@ -149,10 +161,9 @@ export async function renderToSlides(
     if (!el?.value || !region) continue;
     log(`${imgId}: 画像を配置中…`);
     const img = await resolveImageBytes(el.value);
-    const up = await uploadPublicImage(auth, img, `slidegen-${imgId}.${img.ext}`);
-    uploadedFileIds.push(up.fileId);
+    const url = await publishImg(img, `slidegen-${imgId}.${img.ext}`);
     const fitted = containRect(scaleRect(region.rect, s), img.width, img.height);
-    ops.push({ kind: "image", objectId: `${imgId}_img`, url: up.url, rect: fitted });
+    ops.push({ kind: "image", objectId: `${imgId}_img`, url, rect: fitted });
   }
 
   // 2d) テキスト（role==="text" の全 region: tagline/head1/body1/head2/body2 …）
@@ -190,8 +201,9 @@ export async function renderToSlides(
     throw new Error(`Slides batchUpdate に失敗しました: ${(err as Error).message}`);
   }
 
-  // 4) 後始末（Slides は挿入時に画像を取り込むため Drive の一時画像は削除して良い）
-  if (!opts.keepUploads) {
+  // 4) 後始末（Drive 公開アップロード方式のときのみ）。
+  //    自己配信(publishImage)方式はメモリTTLで自動失効するので削除不要。
+  if (!opts.publishImage && !opts.keepUploads && uploadedFileIds.length > 0) {
     log("一時アップロード画像を削除中…");
     await deleteFiles(auth, uploadedFileIds);
   }

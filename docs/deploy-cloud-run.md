@@ -47,7 +47,8 @@ gcloud secrets create google-token --data-file=token.json
 gcloud run deploy slidegen-render \
   --source . \
   --region <REGION> \
-  --no-allow-unauthenticated \
+  --allow-unauthenticated \
+  --max-instances=1 \
   --set-secrets=RENDER_API_KEY=render-api-key:latest \
   --set-secrets=GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest \
   --set-secrets=GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest \
@@ -59,6 +60,13 @@ gcloud run deploy slidegen-render \
 - `PORT` は Cloud Run が自動注入します（`server.ts` は `process.env.PORT` を見ます）。
 - `GOOGLE_TOKEN_PATH` をマウント先 `/secrets/token.json` に向けます（`config.ts` がこれを参照）。
 - 透視変換の Python/OpenCV は `Dockerfile` 内でインストール済みです。
+- **画像配信は「このサーバ自身」が行います**（`/img/<token>` で一時配信 → Slides が取得）。
+  Drive 公開共有は使いません（組織ポリシーで公開共有が禁止されていても動作します）。
+- **`--max-instances=1` は必須**。一時画像をメモリ保持するため、複数インスタンスだと
+  Slides の画像取得が別インスタンスに振られて 404 になり得ます。低頻度の社内利用なら単一で十分。
+  併せて `--min-instances=1`（常時1台で待機）を付けると初回が速くなります（任意）。
+- `--allow-unauthenticated` で公開し、`/render` は **`X-Api-Key`** で保護します
+  （`/img` と `/health` はキー不要の公開エンドポイント）。
 
 ### 認証（GAS からの到達）について
 - `--no-allow-unauthenticated` のままだと Cloud Run の IAM 認証が必要で、GAS の単純な

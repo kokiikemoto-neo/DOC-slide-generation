@@ -17,6 +17,7 @@ import { AuthError } from "./render/auth.js";
 import { PerspectiveError } from "./render/perspective.js";
 import { ImageResolveError } from "./render/drive.js";
 import { renderQrToFile } from "./render/qr.js";
+import { putImage, getImage } from "./render/imageStore.js";
 import type { ComingSoonContent, StyleSpec } from "./types.js";
 
 loadEnv();
@@ -125,12 +126,24 @@ async function handleRender(req: http.IncomingMessage, res: http.ServerResponse)
   const { plan, warnings } = composeComingSoon(fixedSpec, content, "stylespec-coming-soon-v1.json");
   warnings.forEach((w) => console.warn(`⚠ ${w}`));
 
+  // Slides が画像を取得するための公開URLは「このサーバ自身」を使う（Drive 公開不要）。
+  // リバースプロキシ(Cloud Run)越しでも正しい外部URLになるよう X-Forwarded-* を見る。
+  const proto = headerStr(req.headers["x-forwarded-proto"]) || "http";
+  const host = headerStr(req.headers["x-forwarded-host"]) || headerStr(req.headers.host) || `localhost:${PORT}`;
+  const baseUrl = `${proto}://${host}`;
+
   const result = await renderToSlides(fixedSpec, plan, {
     title: `SlideGen ${SUPPORTED_TEMPLATE}`,
     log: (m) => console.log(`[render] ${m}`),
+    publishImage: async (buffer, mime) => `${baseUrl}/img/${putImage(buffer, mime)}`,
   });
 
   sendJson(res, 200, { ok: true, presentationUrl: result.presentationUrl, warnings });
+}
+
+function headerStr(v: string | string[] | undefined): string {
+  if (Array.isArray(v)) return v[0] ?? "";
+  return v ?? "";
 }
 
 function mapError(err: unknown): { status: number; message: string } {
@@ -147,6 +160,19 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && url.pathname === "/health") {
     sendJson(res, 200, { ok: true, template: SUPPORTED_TEMPLATE });
+    return;
+  }
+
+  // 画像配信（Slides が匿名で取得するため X-Api-Key 不要・公開）。
+  if (req.method === "GET" && url.pathname.startsWith("/img/")) {
+    const token = decodeURIComponent(url.pathname.slice("/img/".length));
+    const img = getImage(token);
+    if (!img) {
+      sendJson(res, 404, { ok: false, error: "image not found or expired" });
+      return;
+    }
+    res.writeHead(200, { "Content-Type": img.mime, "Cache-Control": "public, max-age=600" });
+    res.end(img.buffer);
     return;
   }
 
