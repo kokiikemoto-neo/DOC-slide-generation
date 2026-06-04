@@ -105,6 +105,17 @@ function searchSheetName_() { return getProp_('SEARCH_SHEET_NAME', '事例検索
 /** 生成URLの書き戻し先ヘッダー（既定 "営業資料URL"）。列移動しても名前で引くので追従。 */
 function writebackHeader_() { return getProp_('WRITEBACK_HEADER', '営業資料URL'); }
 
+/** フォルダURL/共有リンクを貼られても ID を取り出す（/folders/<id> もしくは ID そのもの）。 */
+function normalizeFolderId_(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+  var m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  s = s.split('?')[0].split('#')[0];
+  var m2 = s.match(/[a-zA-Z0-9_-]{20,}/);
+  return m2 ? m2[0] : s;
+}
+
 /** SPREADSHEET_ID に URL を貼られても ID を抽出する（/d/<id>/ もしくは ID そのもの）。 */
 function normalizeSpreadsheetId_(raw) {
   if (!raw) return '';

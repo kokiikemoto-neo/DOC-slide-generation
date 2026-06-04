@@ -15,6 +15,40 @@ function grantPermissions() {
   return 'OK';
 }
 
+/**
+ * 【共有が効かない時にエディタで実行】共有フォルダの解決・移動・権限を丸ごとログ出力する。
+ * 実行後「表示 → ログ」を確認（または貼ってください）。診断用スライドは最後に削除可。
+ */
+function diagnoseShare() {
+  var raw = getProp_('SHARE_FOLDER_ID', DEFAULT_SHARE_FOLDER_ID);
+  var fid = normalizeFolderId_(raw);
+  Logger.log('SHARE_FOLDER_ID 元の値= "%s"', raw);
+  Logger.log('正規化後フォルダID= "%s"', fid);
+
+  var folder;
+  try {
+    folder = DriveApp.getFolderById(fid);
+    Logger.log('フォルダ取得OK: 名前="%s" / 共有Access=%s / 共有Permission=%s',
+      folder.getName(), folder.getSharingAccess(), folder.getSharingPermission());
+  } catch (e) {
+    Logger.log('フォルダ取得【失敗】: %s', (e && e.message) || e);
+    Logger.log('→ IDが間違っているか、あなたのアカウントにフォルダ閲覧権限がありません。');
+    return;
+  }
+
+  var p = SlidesApp.create('slidegen-diagnose');
+  p.saveAndClose();
+  var f = DriveApp.getFileById(p.getId());
+  try { f.moveTo(folder); Logger.log('スライドのフォルダ移動: OK'); }
+  catch (e) { Logger.log('スライドのフォルダ移動【失敗】: %s', (e && e.message) || e); }
+
+  var parents = [], it = f.getParents();
+  while (it.hasNext()) parents.push(it.next().getName());
+  Logger.log('診断スライドの現在の親フォルダ= [%s]', parents.join(', '));
+  Logger.log('診断スライドURL= %s', p.getUrl());
+  Logger.log('→ このURLを「別の社内アカウント」で開き、編集できるか確認してください。');
+}
+
 /** UI を返す。 */
 function doGet() {
   return HtmlService.createTemplateFromFile('index')
