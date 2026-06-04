@@ -34,3 +34,8 @@ venv/
 # clasp / GAS — auth credentials never committed (scriptId in gas/.clasp.json is fine)
 .clasprc.json
 gas/.clasprc.json
+
+# stray secret temp files (never commit)
+sec.tmp
+.__t
+*.tmp
