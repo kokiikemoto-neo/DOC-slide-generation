@@ -13,10 +13,10 @@ var LAYOUT = {
     body:    { family: 'Noto Sans JP', sizePt: 14, color: '#1E1D56', bold: false, align: 'START'  }
   },
   images: [
-    { key: 'logo',   rect: { x: 16,  y: 15,  w: 314, h: 98 } },
-    { key: 'qr',     rect: { x: 840, y: 14,  w: 99,  h: 99 } },
-    { key: 'frame1', rect: { x: 46,  y: 124, w: 301, h: 211 } },
-    { key: 'frame2', rect: { x: 578, y: 313, w: 301, h: 211 } }
+    { key: 'logo',   rect: { x: 16,  y: 15,  w: 314, h: 98 },  fit: 'contain' },
+    { key: 'qr',     rect: { x: 840, y: 14,  w: 99,  h: 99 },  fit: 'contain' },
+    { key: 'frame1', rect: { x: 46,  y: 124, w: 301, h: 211 }, fit: 'fill' },
+    { key: 'frame2', rect: { x: 578, y: 313, w: 301, h: 211 }, fit: 'fill' }
   ],
   texts: [
     { key: 'tagline', rect: { x: 350, y: 15,  w: 474, h: 98 },  style: 'tagline', valign: 'MIDDLE' },
@@ -116,8 +116,9 @@ function renderSlide(content, docUrl, dims) {
         var d = dims[im.key] || {};
         iw = d.w || 0; ih = d.h || 0;
       }
-      var fit = sc(containRect_(im.rect, iw, ih));
-      slide.insertImage(blob, fit.x, fit.y, fit.w, fit.h);
+      // fill = フレーム枠いっぱい（rectそのまま）/ contain = 余白を残して収める
+      var place = (im.fit === 'fill') ? sc(im.rect) : sc(containRect_(im.rect, iw, ih));
+      slide.insertImage(blob, place.x, place.y, place.w, place.h);
     });
 
     // テキスト（tagline/head1/body1/head2/body2）
