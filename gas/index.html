@@ -113,11 +113,48 @@
     var html = '';
     genFields.forEach(function (f) {
       var input;
-      if (f.type === 'textarea') input = '<textarea id="g_' + f.key + '"></textarea>';
-      else input = '<input type="' + (f.type === 'url' ? 'url' : 'text') + '" id="g_' + f.key + '">';
+      if (f.type === 'image') {
+        input =
+          '<input type="file" accept="image/*" id="file_' + f.key + '" onchange="onPickImage(\'' + f.key + '\', this)">' +
+          '<input type="text" id="g_' + f.key + '" placeholder="アップロード後URL（直接URL貼付も可）" style="margin-top:6px;">' +
+          '<div class="muted" id="up_' + f.key + '"></div>' +
+          '<img id="thumb_' + f.key + '" alt="" style="display:none;max-height:64px;margin-top:6px;border:1px solid var(--line);border-radius:6px;">';
+      } else if (f.type === 'textarea') {
+        input = '<textarea id="g_' + f.key + '"></textarea>';
+      } else {
+        input = '<input type="text" id="g_' + f.key + '">';
+      }
       html += '<div><label class="fld">' + esc(f.label) + '</label>' + input + '</div>';
     });
     document.getElementById('genForm').innerHTML = html;
+  }
+
+  // 画像ファイル選択 → Drive アップロード → URL を該当フィールドに反映
+  var uploading = 0;
+  function onPickImage(key, inputEl) {
+    var file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+    var st = document.getElementById('up_' + key);
+    st.textContent = 'アップロード中… ' + file.name; st.className = 'muted';
+    uploading++;
+    var reader = new FileReader();
+    reader.onload = function () {
+      google.script.run
+        .withSuccessHandler(function (res) {
+          uploading--;
+          if (res && res.ok) {
+            document.getElementById('g_' + key).value = res.url;
+            st.textContent = 'アップロード完了'; st.className = 'ok';
+            var t = document.getElementById('thumb_' + key); t.src = res.url; t.style.display = 'inline-block';
+          } else {
+            st.textContent = '失敗: ' + esc((res && res.error) || '不明'); st.className = 'err';
+          }
+        })
+        .withFailureHandler(function (e) { uploading--; st.textContent = '失敗: ' + esc(e.message); st.className = 'err'; })
+        .uploadImageToDrive(reader.result, file.name);
+    };
+    reader.onerror = function () { uploading--; st.textContent = 'ファイル読み込み失敗'; st.className = 'err'; };
+    reader.readAsDataURL(file);
   }
 
   function collectForm() {
@@ -135,6 +172,7 @@
   }
 
   function doGenerate() {
+    if (uploading > 0) { setText('genStatus', '画像アップロードの完了をお待ちください…', true); return; }
     var btn = document.getElementById('genBtn');
     btn.disabled = true;
     setText('genStatus', '保存＆生成中…（数十秒かかる場合があります）');

@@ -28,13 +28,13 @@ var GEN_COLUMN_MAP = {
 var GEN_FIELDS = [
   { key: 'caseId',    label: '管理No.（検索シートのIDと一致させる）', type: 'text' },
   { key: 'name',      label: '企業名',            type: 'text' },
-  { key: 'logoUrl',   label: '企業ロゴ（画像URL）', type: 'url' },
+  { key: 'logoUrl',   label: '企業ロゴ',           type: 'image' },
   { key: 'tagline',   label: '活用背景一言',       type: 'text' },
-  { key: 'qrUrl',     label: 'QRコード（画像URL）', type: 'url' },
-  { key: 'image1Url', label: '画像①（画像URL）',   type: 'url' },
+  { key: 'qrUrl',     label: 'QRコード',          type: 'image' },
+  { key: 'image1Url', label: '画像①',            type: 'image' },
   { key: 'head1',     label: '画像①のタイトル',    type: 'text' },
   { key: 'body1',     label: '画像①の詳細',        type: 'textarea' },
-  { key: 'image2Url', label: '画像②（画像URL）',   type: 'url' },
+  { key: 'image2Url', label: '画像②',            type: 'image' },
   { key: 'head2',     label: '画像②のタイトル',    type: 'text' },
   { key: 'body2',     label: '画像②の詳細',        type: 'textarea' }
 ];
