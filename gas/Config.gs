@@ -41,9 +41,20 @@ function getProp_(name, fallback) {
   return (v === null || v === undefined || v === '') ? (fallback === undefined ? '' : fallback) : v;
 }
 
+/** SPREADSHEET_ID に URL を貼られても ID を抽出する（/d/<id>/ もしくは ID そのもの）。 */
+function normalizeSpreadsheetId_(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+  var m = s.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  // 余計なクエリ等が付いていても ID 部分だけ拾う
+  var m2 = s.match(/[a-zA-Z0-9_-]{30,}/);
+  return m2 ? m2[0] : s;
+}
+
 /** 検索対象スプレッドシート。SPREADSHEET_ID プロパティ優先、無ければアクティブ（コンテナバインド時）。 */
 function getSpreadsheet_() {
-  var id = getProp_('SPREADSHEET_ID', '');
+  var id = normalizeSpreadsheetId_(getProp_('SPREADSHEET_ID', ''));
   if (id) return SpreadsheetApp.openById(id);
   var active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) return active;
