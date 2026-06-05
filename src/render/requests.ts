@@ -91,11 +91,13 @@ function textRequests(op: Extract<DrawOp, { kind: "text" }>, pageId: string): Re
         fields: "fontFamily,fontSize,foregroundColor,bold",
       },
     });
+    // Slides の ParagraphStyle.Alignment は START/CENTER/END（left/right は不可）
+    const alignMap: Record<string, string> = { left: "START", center: "CENTER", right: "END" };
     requests.push({
       updateParagraphStyle: {
         objectId,
         textRange: { type: "ALL" },
-        style: { alignment: (font.align ?? "left").toUpperCase() },
+        style: { alignment: alignMap[font.align ?? "left"] ?? "START" },
         fields: "alignment",
       },
     });
