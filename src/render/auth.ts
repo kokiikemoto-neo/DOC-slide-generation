@@ -118,6 +118,17 @@ export async function authorize(): Promise<OAuth2Client> {
     client.setCredentials(saved as Record<string, unknown>);
     return client;
   }
+
+  // サーバ環境（Cloud Run 等）では対話フローに入らず、原因が分かるエラーを返す。
+  const onServer = !!process.env.K_SERVICE || process.env.NON_INTERACTIVE === "1";
+  if (onServer) {
+    const exists = fs.existsSync(cfg.tokenPath);
+    throw new AuthError(
+      `token.json を読み込めません。path="${cfg.tokenPath}" exists=${exists} ` +
+        `(GOOGLE_TOKEN_PATH=${process.env.GOOGLE_TOKEN_PATH ?? "(未設定)"})。` +
+        `Secret のマウント先と GOOGLE_TOKEN_PATH を確認してください。`
+    );
+  }
   await runConsentFlow(client, cfg);
   return client;
 }
